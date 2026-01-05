@@ -1,0 +1,16 @@
+workout_date,workout_type,exercise_name,expected_sets,expected_reps,rest_in_seconds,rpe,recommended_weight,workout_status,workout_notes
+2026-01-06,Push Day,Bench Press,4,8,120,8,80kg,planned,Focus on form
+2026-01-06,Push Day,Incline Dumbbell Press,3,10,90,7,30kg,planned,
+2026-01-06,Push Day,Overhead Press,3,8,90,8,50kg,planned,
+2026-01-06,Push Day,Lateral Raises,3,12,60,6,12kg,planned,
+2026-01-06,Push Day,Tricep Pushdowns,3,15,60,7,40kg,planned,
+2026-01-08,Pull Day,Deadlift,4,6,180,9,120kg,planned,Main lift of the day
+2026-01-08,Pull Day,Pull-ups,3,10,90,8,Bodyweight,planned,
+2026-01-08,Pull Day,Barbell Rows,3,8,90,7,70kg,planned,
+2026-01-08,Pull Day,Face Pulls,3,15,60,6,30kg,planned,
+2026-01-08,Pull Day,Bicep Curls,3,12,60,7,15kg,planned,
+2026-01-10,Leg Day,Squats,4,8,150,8,100kg,planned,Focus on depth
+2026-01-10,Leg Day,Romanian Deadlifts,3,10,90,7,80kg,planned,
+2026-01-10,Leg Day,Leg Press,3,12,90,7,180kg,planned,
+2026-01-10,Leg Day,Leg Curls,3,12,60,6,50kg,planned,
+2026-01-10,Leg Day,Calf Raises,4,15,60,6,60kg,planned,
