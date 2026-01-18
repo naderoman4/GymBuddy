@@ -198,32 +198,30 @@ export default function ImportWorkoutPage() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <div className="mb-6">
+      <div className="mb-4 sm:mb-6">
         <button
           onClick={() => navigate('/')}
-          className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
+          className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-3 sm:mb-4 active:text-gray-600"
         >
           <ArrowLeft size={20} />
-          Back to workouts
+          <span className="text-sm sm:text-base">Back to workouts</span>
         </button>
-        <h1 className="text-3xl font-bold text-gray-900">Import workouts</h1>
-        <p className="text-gray-600 mt-2">Upload a CSV file with your workout plan</p>
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Import workouts</h1>
+        <p className="text-sm sm:text-base text-gray-600 mt-1 sm:mt-2">Upload a CSV file with your workout plan</p>
       </div>
 
-      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-        <h2 className="text-lg font-semibold mb-4">CSV Format</h2>
-        <p className="text-gray-600 mb-4">
-          Your CSV file should include the following columns:
+      <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-4 sm:mb-6">
+        <h2 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">CSV Format</h2>
+        <p className="text-sm sm:text-base text-gray-600 mb-3 sm:mb-4">
+          Your CSV file should include these columns:
         </p>
-        <div className="bg-gray-50 p-4 rounded border border-gray-200 overflow-x-auto">
-          <code className="text-sm">
-            workout_date, workout_type, exercise_name, expected_sets, expected_reps, <br />
-            rest_in_seconds, rpe, [workout_id], [workout_name], [workout_status], <br />
-            [workout_notes], [recommended_weight]
+        <div className="bg-gray-50 p-3 sm:p-4 rounded border border-gray-200 overflow-x-auto">
+          <code className="text-xs sm:text-sm whitespace-nowrap">
+            workout_date, workout_type, exercise_name, expected_sets, expected_reps, rest_in_seconds, rpe
           </code>
         </div>
-        <p className="text-sm text-gray-500 mt-2">
-          Fields in [brackets] are optional. Date format: YYYY-MM-DD
+        <p className="text-xs sm:text-sm text-gray-500 mt-2">
+          Optional: workout_id, workout_name, workout_status, workout_notes, recommended_weight
         </p>
       </div>
 
@@ -231,7 +229,7 @@ export default function ImportWorkoutPage() {
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        className={`border-2 border-dashed rounded-lg p-12 text-center transition-colors ${
+        className={`border-2 border-dashed rounded-lg p-6 sm:p-12 text-center transition-colors ${
           isDragging
             ? 'border-blue-500 bg-blue-50'
             : 'border-gray-300 bg-gray-50 hover:border-gray-400'
@@ -245,32 +243,32 @@ export default function ImportWorkoutPage() {
           className="hidden"
         />
 
-        <Upload className="mx-auto mb-4 text-gray-400" size={48} />
+        <Upload className="mx-auto mb-3 sm:mb-4 text-gray-400" size={40} />
 
-        <h3 className="text-xl font-semibold mb-2">
+        <h3 className="text-lg sm:text-xl font-semibold mb-2">
           {isDragging ? 'Drop your CSV file here' : 'Upload CSV File'}
         </h3>
 
-        <p className="text-gray-600 mb-4">
-          Drag and drop your CSV file here, or use the buttons below
+        <p className="text-sm sm:text-base text-gray-600 mb-4">
+          Drag and drop, or use the buttons below
         </p>
 
-        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 justify-center">
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={isProcessing}
-            className="flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+            className="flex items-center justify-center gap-2 bg-blue-600 text-white px-4 sm:px-6 py-2.5 rounded-lg hover:bg-blue-700 active:bg-blue-800 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-sm sm:text-base"
           >
-            <Upload size={20} />
+            <Upload size={18} />
             {isProcessing ? 'Processing...' : 'Select File'}
           </button>
 
           <button
             onClick={handlePasteFromClipboard}
             disabled={isProcessing}
-            className="flex items-center justify-center gap-2 bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+            className="flex items-center justify-center gap-2 bg-purple-600 text-white px-4 sm:px-6 py-2.5 rounded-lg hover:bg-purple-700 active:bg-purple-800 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-sm sm:text-base"
           >
-            <Clipboard size={20} />
+            <Clipboard size={18} />
             Paste from Clipboard
           </button>
         </div>
@@ -278,30 +276,30 @@ export default function ImportWorkoutPage() {
 
       {message && (
         <div
-          className={`mt-6 p-4 rounded-lg flex items-start gap-3 ${
+          className={`mt-4 sm:mt-6 p-3 sm:p-4 rounded-lg flex items-start gap-2 sm:gap-3 ${
             message.type === 'success'
               ? 'bg-green-50 text-green-800 border border-green-200'
               : 'bg-red-50 text-red-800 border border-red-200'
           }`}
         >
           {message.type === 'success' ? (
-            <CheckCircle size={24} className="flex-shrink-0" />
+            <CheckCircle size={20} className="flex-shrink-0" />
           ) : (
-            <AlertCircle size={24} className="flex-shrink-0" />
+            <AlertCircle size={20} className="flex-shrink-0" />
           )}
-          <p>{message.text}</p>
+          <p className="text-sm sm:text-base">{message.text}</p>
         </div>
       )}
 
-      <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
-        <h3 className="font-semibold text-blue-900 mb-2">Import Options</h3>
-        <ul className="text-sm text-blue-800 space-y-1">
-          <li>• <strong>Upload File:</strong> Select a CSV file from your device</li>
-          <li>• <strong>Paste from Clipboard:</strong> Copy CSV data (e.g., from Google Sheets, Excel) and paste directly</li>
+      <div className="mt-6 sm:mt-8 bg-blue-50 border border-blue-200 rounded-lg p-4 sm:p-6">
+        <h3 className="font-semibold text-blue-900 mb-2 text-sm sm:text-base">Import Options</h3>
+        <ul className="text-xs sm:text-sm text-blue-800 space-y-1">
+          <li>• <strong>Upload File:</strong> Select a CSV from your device</li>
+          <li>• <strong>Paste:</strong> Copy CSV data from Google Sheets or Excel</li>
           <li>• <strong>Drag & Drop:</strong> Drag a CSV file into the upload area</li>
         </ul>
-        <p className="text-sm text-blue-800 mt-3">
-          Each row represents one exercise. Exercises with the same workout_date and workout_type will be grouped into the same workout.
+        <p className="text-xs sm:text-sm text-blue-800 mt-3">
+          Exercises with the same workout_date and workout_type will be grouped into one workout.
         </p>
       </div>
     </div>

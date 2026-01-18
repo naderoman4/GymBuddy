@@ -72,9 +72,9 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="h-screen flex overflow-hidden">
+    <div className="min-h-screen flex overflow-hidden">
       {/* Left Side - Signup Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white">
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-4 sm:p-8 bg-white overflow-y-auto">
         <div className="max-w-md w-full">
           <div className="mb-8">
             <div className="flex items-center gap-3 mb-6">

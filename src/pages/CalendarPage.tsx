@@ -134,32 +134,33 @@ export default function CalendarPage() {
 
   return (
     <div className="max-w-7xl mx-auto">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">My workouts</h1>
+      {/* Header - stacks on mobile */}
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">My workouts</h1>
 
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-2 sm:gap-3">
           {selectedWorkouts.size > 0 && (
             <button
               onClick={exportSelectedWorkouts}
-              className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+              className="flex items-center gap-2 bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm sm:text-base"
             >
-              <Download size={20} />
-              Export {selectedWorkouts.size} workout{selectedWorkouts.size > 1 ? 's' : ''}
+              <Download size={18} />
+              <span className="hidden xs:inline">Export</span> {selectedWorkouts.size}
             </button>
           )}
           <Link
             to="/import"
-            className="flex items-center gap-2 bg-white text-gray-700 px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+            className="flex items-center gap-2 bg-white text-gray-700 px-3 sm:px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors text-sm sm:text-base"
           >
-            <FileUp size={20} />
-            Import workouts
+            <FileUp size={18} />
+            <span className="hidden sm:inline">Import</span>
           </Link>
           <Link
             to="/create"
-            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-semibold"
+            className="flex items-center gap-2 bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-semibold text-sm sm:text-base"
           >
-            <Plus size={20} />
-            Create workout
+            <Plus size={18} />
+            <span className="hidden sm:inline">Create</span>
           </Link>
         </div>
       </div>
@@ -181,22 +182,22 @@ export default function CalendarPage() {
         </div>
       )}
 
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <div className="flex items-center justify-between mb-6">
+      <div className="bg-white rounded-lg shadow-md p-3 sm:p-6">
+        <div className="flex items-center justify-between mb-4 sm:mb-6">
           <button
             onClick={previousMonth}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors active:bg-gray-200"
           >
             <ChevronLeft size={24} />
           </button>
 
-          <h2 className="text-2xl font-semibold">
+          <h2 className="text-lg sm:text-2xl font-semibold">
             {format(currentDate, 'MMMM yyyy')}
           </h2>
 
           <button
             onClick={nextMonth}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors active:bg-gray-200"
           >
             <ChevronRight size={24} />
           </button>
@@ -207,10 +208,12 @@ export default function CalendarPage() {
             <p className="text-gray-500">Loading workouts...</p>
           </div>
         ) : (
-          <div className="grid grid-cols-7 gap-2">
-            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-              <div key={day} className="text-center font-semibold text-gray-600 py-2">
-                {day}
+          <div className="grid grid-cols-7 gap-1 sm:gap-2">
+            {/* Day headers - abbreviated on mobile */}
+            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
+              <div key={index} className="text-center font-semibold text-gray-600 py-1 sm:py-2 text-xs sm:text-sm">
+                <span className="sm:hidden">{day}</span>
+                <span className="hidden sm:inline">{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][index]}</span>
               </div>
             ))}
 
@@ -222,15 +225,16 @@ export default function CalendarPage() {
             {days.map(day => {
               const dayWorkouts = getWorkoutsForDate(day)
               const isCurrentMonth = isSameMonth(day, currentDate)
+              const isToday = isSameDay(day, new Date())
 
               return (
                 <div
                   key={day.toISOString()}
-                  className={`aspect-square border rounded-lg p-2 ${
+                  className={`min-h-[60px] sm:min-h-[80px] md:min-h-[100px] border rounded-lg p-1 sm:p-2 ${
                     isCurrentMonth ? 'bg-white' : 'bg-gray-50'
-                  }`}
+                  } ${isToday ? 'ring-2 ring-blue-500' : ''}`}
                 >
-                  <div className="text-sm font-semibold mb-1">
+                  <div className={`text-xs sm:text-sm font-semibold mb-1 ${isToday ? 'text-blue-600' : ''}`}>
                     {format(day, 'd')}
                   </div>
 
@@ -239,11 +243,11 @@ export default function CalendarPage() {
                       <div key={workout.id} className="relative">
                         <Link
                           to={`/workout/${workout.id}`}
-                          className={`block text-xs p-1 rounded border ${getStatusColor(workout.status)} hover:shadow-md transition-shadow`}
+                          className={`block text-xs p-1 rounded border ${getStatusColor(workout.status)} hover:shadow-md active:scale-95 transition-all`}
                         >
                           <div className="flex items-center gap-1">
-                            <Dumbbell size={12} />
-                            <span className="truncate">{workout.workout_type}</span>
+                            <Dumbbell size={10} className="flex-shrink-0 hidden sm:block" />
+                            <span className="truncate text-[10px] sm:text-xs">{workout.workout_type}</span>
                           </div>
                         </Link>
 
@@ -252,7 +256,7 @@ export default function CalendarPage() {
                             type="checkbox"
                             checked={selectedWorkouts.has(workout.id)}
                             onChange={() => toggleWorkoutSelection(workout.id, workout.status)}
-                            className="absolute -top-1 -right-1 w-4 h-4 cursor-pointer"
+                            className="absolute -top-1 -right-1 w-4 h-4 sm:w-4 sm:h-4 cursor-pointer"
                             title="Select for export"
                           />
                         )}

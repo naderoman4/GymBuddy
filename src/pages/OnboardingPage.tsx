@@ -409,16 +409,16 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
+    <div className="min-h-screen bg-gray-50 py-4 sm:py-8 px-3 sm:px-4">
       <div className="max-w-4xl mx-auto">
-        {/* Stepper */}
-        <div className="mb-12">
+        {/* Stepper - simplified on mobile */}
+        <div className="mb-6 sm:mb-12">
           <div className="flex items-center justify-between">
             {steps.map((step, index) => (
               <div key={step.number} className="flex items-center flex-1">
                 <div className="flex flex-col items-center flex-1">
                   <div
-                    className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-all ${
+                    className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-semibold transition-all text-sm sm:text-base ${
                       currentStep > step.number
                         ? 'bg-green-500 text-white'
                         : currentStep === step.number
@@ -426,10 +426,10 @@ export default function OnboardingPage() {
                         : 'bg-gray-300 text-gray-600'
                     }`}
                   >
-                    {currentStep > step.number ? <Check size={20} /> : step.number}
+                    {currentStep > step.number ? <Check size={16} className="sm:w-5 sm:h-5" /> : step.number}
                   </div>
                   <p
-                    className={`text-xs mt-2 text-center ${
+                    className={`text-[10px] sm:text-xs mt-1 sm:mt-2 text-center hidden sm:block ${
                       currentStep >= step.number ? 'text-gray-900 font-medium' : 'text-gray-500'
                     }`}
                   >
@@ -438,7 +438,7 @@ export default function OnboardingPage() {
                 </div>
                 {index < steps.length - 1 && (
                   <div
-                    className={`h-1 flex-1 mx-2 transition-all ${
+                    className={`h-0.5 sm:h-1 flex-1 mx-1 sm:mx-2 transition-all ${
                       currentStep > step.number ? 'bg-green-500' : 'bg-gray-300'
                     }`}
                   />
@@ -449,64 +449,63 @@ export default function OnboardingPage() {
         </div>
 
         {/* Step Content */}
-        <div className="bg-white rounded-lg shadow-md p-8">
+        <div className="bg-white rounded-lg shadow-md p-4 sm:p-8">
           {/* Step 1: Choose Coaching Method */}
           {currentStep === 1 && (
             <div>
-              <div className="mb-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
-                <h2 className="text-2xl font-bold text-blue-900 mb-3">Welcome to GymBuddy!</h2>
-                <p className="text-blue-800">
+              <div className="mb-6 sm:mb-8 bg-blue-50 border border-blue-200 rounded-lg p-4 sm:p-6">
+                <h2 className="text-xl sm:text-2xl font-bold text-blue-900 mb-2 sm:mb-3">Welcome to GymBuddy!</h2>
+                <p className="text-sm sm:text-base text-blue-800">
                   To get started with your fitness journey, you'll need to create your first workout.
-                  This will help you track your progress, stay organized, and achieve your fitness goals.
                   Choose the method that works best for you below.
                 </p>
               </div>
 
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">Choose your coaching method</h3>
-              <p className="text-gray-600 mb-8">
+              <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">Choose your coaching method</h3>
+              <p className="text-sm sm:text-base text-gray-600 mb-6 sm:mb-8">
                 Select how you'd like to create your first workout plan
               </p>
 
-              <div className="grid md:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
                 {/* Manual Creation */}
                 <button
                   onClick={() => handleMethodSelect('manual')}
-                  className="group p-6 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:shadow-lg transition-all text-left"
+                  className="group p-4 sm:p-6 border-2 border-gray-200 rounded-lg hover:border-blue-500 active:border-blue-600 hover:shadow-lg transition-all text-left"
                 >
-                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4 group-hover:bg-blue-500 transition-colors">
-                    <Edit3 className="text-blue-600 group-hover:text-white" size={24} />
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-3 sm:mb-4 group-hover:bg-blue-500 transition-colors">
+                    <Edit3 className="text-blue-600 group-hover:text-white" size={20} />
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Create Manually</h3>
-                  <p className="text-sm text-gray-600">
-                    Build your workout from scratch with full control over every detail
+                  <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-1 sm:mb-2">Create Manually</h3>
+                  <p className="text-xs sm:text-sm text-gray-600">
+                    Build your workout from scratch with full control
                   </p>
                 </button>
 
                 {/* Import */}
                 <button
                   onClick={() => handleMethodSelect('import')}
-                  className="group p-6 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:shadow-lg transition-all text-left"
+                  className="group p-4 sm:p-6 border-2 border-gray-200 rounded-lg hover:border-blue-500 active:border-purple-600 hover:shadow-lg transition-all text-left"
                 >
-                  <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4 group-hover:bg-purple-500 transition-colors">
-                    <FileUp className="text-purple-600 group-hover:text-white" size={24} />
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-3 sm:mb-4 group-hover:bg-purple-500 transition-colors">
+                    <FileUp className="text-purple-600 group-hover:text-white" size={20} />
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Import Workout</h3>
-                  <p className="text-sm text-gray-600">
-                    Upload from CSV, XLS, or JSON files with your existing plan
+                  <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-1 sm:mb-2">Import Workout</h3>
+                  <p className="text-xs sm:text-sm text-gray-600">
+                    Upload from CSV files with your existing plan
                   </p>
                 </button>
 
                 {/* AI Generation */}
                 <button
                   onClick={() => handleMethodSelect('ai')}
-                  className="group p-6 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:shadow-lg transition-all text-left"
+                  className="group p-4 sm:p-6 border-2 border-gray-200 rounded-lg hover:border-blue-500 active:border-indigo-600 hover:shadow-lg transition-all text-left"
                 >
-                  <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center mb-4 group-hover:bg-indigo-500 transition-colors">
-                    <Sparkles className="text-indigo-600 group-hover:text-white" size={24} />
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-indigo-100 rounded-lg flex items-center justify-center mb-3 sm:mb-4 group-hover:bg-indigo-500 transition-colors">
+                    <Sparkles className="text-indigo-600 group-hover:text-white" size={20} />
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Ask GymBuddy AI</h3>
-                  <p className="text-sm text-gray-600">
-                    Let our AI create a personalized workout plan for you
+                  <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-1 sm:mb-2">Ask GymBuddy AI</h3>
+                  <p className="text-xs sm:text-sm text-gray-600">
+                    Let our AI create a personalized workout plan
                   </p>
                 </button>
               </div>
