@@ -137,8 +137,10 @@ export default function OnboardingPage() {
         throw new Error('Failed to create workout')
       }
 
+      const workoutId = (insertedWorkout as { id: string }).id
+
       const exercisesToInsert = exercises.map(ex => ({
-        workout_id: insertedWorkout.id,
+        workout_id: workoutId,
         workout_name: workoutName,
         exercise_name: ex.exercise_name,
         expected_sets: ex.expected_sets,
@@ -158,7 +160,7 @@ export default function OnboardingPage() {
         throw new Error('Failed to create exercises')
       }
 
-      setCreatedWorkoutId(insertedWorkout.id)
+      setCreatedWorkoutId(workoutId)
       setWorkoutCreated(true)
       await fetchCalendarWorkouts()
       setCurrentStep(3)
@@ -326,12 +328,13 @@ export default function OnboardingPage() {
         throw new Error(`Error inserting workout: ${workoutError?.message || 'No workout returned'}`)
       }
 
-      if (!firstWorkoutId) firstWorkoutId = insertedWorkout.id
+      const insertedWorkoutId = (insertedWorkout as { id: string }).id
+
+      if (!firstWorkoutId) firstWorkoutId = insertedWorkoutId
 
       const exercisesWithWorkoutId = exercises.map(ex => ({
         ...ex,
-        // @ts-expect-error Type narrowing issue
-        workout_id: insertedWorkout.id,
+        workout_id: insertedWorkoutId,
         user_id: user!.id
       }))
 

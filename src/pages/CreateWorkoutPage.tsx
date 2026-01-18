@@ -85,8 +85,10 @@ export default function CreateWorkoutPage() {
         throw new Error('Failed to create workout')
       }
 
+      const workoutId = (insertedWorkout as { id: string }).id
+
       const exercisesToInsert = exercises.map(ex => ({
-        workout_id: insertedWorkout.id,
+        workout_id: workoutId,
         workout_name: workoutName,
         exercise_name: ex.exercise_name,
         expected_sets: ex.expected_sets,
