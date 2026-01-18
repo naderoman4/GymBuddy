@@ -1,20 +1,47 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, parseISO } from 'date-fns'
-import { ChevronLeft, ChevronRight, Download, Dumbbell } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Download, Dumbbell, X, Plus, FileUp } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../contexts/AuthContext'
 import type { Workout, Exercise } from '../lib/database.types'
 import Papa from 'papaparse'
 
 export default function CalendarPage() {
+  const { user } = useAuth()
+  const navigate = useNavigate()
   const [currentDate, setCurrentDate] = useState(new Date())
   const [workouts, setWorkouts] = useState<Workout[]>([])
   const [selectedWorkouts, setSelectedWorkouts] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
+  const [hasCheckedWorkouts, setHasCheckedWorkouts] = useState(false)
+  const [showTips, setShowTips] = useState(() => {
+    const dismissed = localStorage.getItem('calendarTipsDismissed')
+    return dismissed !== 'true'
+  })
 
   useEffect(() => {
     fetchWorkouts()
   }, [currentDate])
+
+  useEffect(() => {
+    const checkForWorkouts = async () => {
+      if (!user || hasCheckedWorkouts) return
+
+      const { data, error } = await supabase
+        .from('workouts')
+        .select('id')
+        .eq('user_id', user.id)
+        .limit(1)
+
+      if (!error && (!data || data.length === 0)) {
+        navigate('/onboarding')
+      }
+      setHasCheckedWorkouts(true)
+    }
+
+    checkForWorkouts()
+  }, [user, hasCheckedWorkouts, navigate])
 
   const fetchWorkouts = async () => {
     setLoading(true)
@@ -100,21 +127,59 @@ export default function CalendarPage() {
     }
   }
 
+  const dismissTips = () => {
+    localStorage.setItem('calendarTipsDismissed', 'true')
+    setShowTips(false)
+  }
+
   return (
     <div className="max-w-7xl mx-auto">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Workout Calendar</h1>
+        <h1 className="text-3xl font-bold text-gray-900">My workouts</h1>
 
-        {selectedWorkouts.size > 0 && (
-          <button
-            onClick={exportSelectedWorkouts}
-            className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+        <div className="flex gap-3">
+          {selectedWorkouts.size > 0 && (
+            <button
+              onClick={exportSelectedWorkouts}
+              className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+            >
+              <Download size={20} />
+              Export {selectedWorkouts.size} workout{selectedWorkouts.size > 1 ? 's' : ''}
+            </button>
+          )}
+          <Link
+            to="/import"
+            className="flex items-center gap-2 bg-white text-gray-700 px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
           >
-            <Download size={20} />
-            Export {selectedWorkouts.size} workout{selectedWorkouts.size > 1 ? 's' : ''}
-          </button>
-        )}
+            <FileUp size={20} />
+            Import workouts
+          </Link>
+          <Link
+            to="/create"
+            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-semibold"
+          >
+            <Plus size={20} />
+            Create workout
+          </Link>
+        </div>
       </div>
+
+      {showTips && (
+        <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4 relative">
+          <button
+            onClick={dismissTips}
+            className="absolute top-3 right-3 text-blue-600 hover:text-blue-800"
+          >
+            <X size={20} />
+          </button>
+          <h3 className="font-semibold text-blue-900 mb-2">Tips:</h3>
+          <ul className="text-sm text-blue-800 space-y-1">
+            <li>• Click on a workout to view details and track your progress</li>
+            <li>• Select completed workouts (done status) using checkboxes to export</li>
+            <li>• Green workouts are completed, blue are planned</li>
+          </ul>
+        </div>
+      )}
 
       <div className="bg-white rounded-lg shadow-md p-6">
         <div className="flex items-center justify-between mb-6">
@@ -199,15 +264,6 @@ export default function CalendarPage() {
             })}
           </div>
         )}
-      </div>
-
-      <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="font-semibold text-blue-900 mb-2">Tips:</h3>
-        <ul className="text-sm text-blue-800 space-y-1">
-          <li>• Click on a workout to view details and track your progress</li>
-          <li>• Select completed workouts (done status) using checkboxes to export</li>
-          <li>• Green workouts are completed, blue are planned</li>
-        </ul>
       </div>
     </div>
   )

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { AlertCircle, CheckCircle } from 'lucide-react'
+import { AlertCircle, CheckCircle, Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 
 const CATCHPHRASES = [
@@ -17,8 +17,14 @@ export default function SignupPage() {
   const [success, setSuccess] = useState(false)
   const [loading, setLoading] = useState(false)
   const [currentPhraseIndex, setCurrentPhraseIndex] = useState(0)
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const { signUp } = useAuth()
   const navigate = useNavigate()
+
+  // Password validation
+  const hasMinLength = password.length >= 8
+  const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password)
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -38,8 +44,13 @@ export default function SignupPage() {
       return
     }
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters long')
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters long')
+      return
+    }
+
+    if (!hasSpecialChar) {
+      setError('Password must contain at least 1 special character')
       return
     }
 
@@ -110,30 +121,79 @@ export default function SignupPage() {
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
                 Password
               </label>
-              <input
-                id="password"
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="block w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="At least 6 characters"
-              />
+              <div className="relative">
+                <input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="block w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Create a strong password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
+
+              {/* Password Requirements */}
+              {password.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  <div className={`flex items-center gap-2 transition-all duration-300 ${hasMinLength ? 'opacity-100' : 'opacity-60'}`}>
+                    <div className={`flex items-center justify-center w-6 h-6 rounded transition-all duration-300 ${hasMinLength ? 'bg-green-500 scale-110' : 'bg-gray-300'}`}>
+                      {hasMinLength ? (
+                        <span className="text-white text-lg animate-bounce">💪</span>
+                      ) : (
+                        <span className="text-gray-500 text-xs">1</span>
+                      )}
+                    </div>
+                    <span className={`text-sm ${hasMinLength ? 'text-green-700 font-medium' : 'text-gray-600'}`}>
+                      At least 8 characters {hasMinLength && '- Nice warm-up!'}
+                    </span>
+                  </div>
+
+                  <div className={`flex items-center gap-2 transition-all duration-300 ${hasSpecialChar ? 'opacity-100' : 'opacity-60'}`}>
+                    <div className={`flex items-center justify-center w-6 h-6 rounded transition-all duration-300 ${hasSpecialChar ? 'bg-green-500 scale-110' : 'bg-gray-300'}`}>
+                      {hasSpecialChar ? (
+                        <span className="text-white text-lg animate-bounce">🏋️</span>
+                      ) : (
+                        <span className="text-gray-500 text-xs">2</span>
+                      )}
+                    </div>
+                    <span className={`text-sm ${hasSpecialChar ? 'text-green-700 font-medium' : 'text-gray-600'}`}>
+                      Contains a special character (!@#$%...) {hasSpecialChar && '- Strong lift!'}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div>
               <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
                 Confirm password
               </label>
-              <input
-                id="confirmPassword"
-                type="password"
-                required
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="block w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Re-enter your password"
-              />
+              <div className="relative">
+                <input
+                  id="confirmPassword"
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  required
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="block w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Re-enter your password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
+                >
+                  {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
             </div>
 
             <button

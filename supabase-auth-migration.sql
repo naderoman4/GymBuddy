@@ -1,4 +1,4 @@
--- Migration to add user authentication support
+I Wh-- Migration to add user authentication support
 -- Run this in your Supabase SQL Editor AFTER the initial schema
 
 -- Step 1: Drop ALL existing policies (including auth policies if they exist)

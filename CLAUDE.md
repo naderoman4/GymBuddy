@@ -2,6 +2,32 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Claude Instructions
+
+**IMPORTANT: Before starting any coding task, always read this entire CLAUDE.md file to ensure you have full context of the application architecture, patterns, and conventions.**
+
+### UX Principles
+
+User experience is the top priority. When developing features:
+
+1. **Prioritize Good UX Above All** - Every feature should feel intuitive, responsive, and delightful to use. If a technically correct solution has poor UX, find a better approach.
+
+2. **Take Inspiration from Best-in-Class Apps**:
+   - **Airbnb**: Clean visual hierarchy, smooth animations, thoughtful empty states, excellent search/filter UX, trust-building design patterns
+   - **Revolut**: Fast, snappy interactions, clear financial data visualization, minimalist design, excellent onboarding flows, satisfying micro-interactions
+   - **Meta (Instagram/WhatsApp)**: Gesture-based navigation, seamless media handling, intuitive social patterns, pull-to-refresh, optimistic UI updates
+
+3. **Mobile-First Design** - This is primarily a gym app used on phones. Design for thumb-friendly interactions, one-handed use, and quick glanceability during workouts.
+
+4. **Key UX Patterns to Follow**:
+   - Loading states with skeletons, not spinners
+   - Optimistic updates for instant feedback
+   - Clear error states with actionable recovery options
+   - Smooth transitions between pages
+   - Haptic-like visual feedback on interactions
+   - Empty states that guide users to take action
+   - Progressive disclosure - don't overwhelm with options
+
 ## Project Overview
 
 GymBuddy is a mobile-friendly workout tracking application that helps users:

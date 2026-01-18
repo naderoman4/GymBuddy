@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
-import { Upload, AlertCircle, CheckCircle, FileText, Clipboard } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Upload, Clipboard, AlertCircle, CheckCircle, ArrowLeft } from 'lucide-react'
 import Papa from 'papaparse'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -20,8 +21,9 @@ interface CSVRow {
   rpe: string
 }
 
-export default function ImportPage() {
+export default function ImportWorkoutPage() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [isDragging, setIsDragging] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
@@ -39,7 +41,6 @@ export default function ImportPage() {
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault()
     setIsDragging(false)
-
     const files = e.dataTransfer.files
     if (files.length > 0) {
       handleFile(files[0])
@@ -69,6 +70,7 @@ export default function ImportPage() {
         try {
           await processCSVData(results.data)
           setMessage({ type: 'success', text: `Successfully imported ${results.data.length} exercises!` })
+          setTimeout(() => navigate('/'), 2000)
         } catch (error) {
           setMessage({ type: 'error', text: (error as Error).message })
         } finally {
@@ -85,7 +87,6 @@ export default function ImportPage() {
   const handlePasteFromClipboard = async () => {
     try {
       const text = await navigator.clipboard.readText()
-
       if (!text.trim()) {
         setMessage({ type: 'error', text: 'Clipboard is empty' })
         return
@@ -101,6 +102,7 @@ export default function ImportPage() {
           try {
             await processCSVData(results.data)
             setMessage({ type: 'success', text: `Successfully imported ${results.data.length} exercises from clipboard!` })
+            setTimeout(() => navigate('/'), 2000)
           } catch (error) {
             setMessage({ type: 'error', text: (error as Error).message })
           } finally {
@@ -113,7 +115,7 @@ export default function ImportPage() {
         }
       })
     } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to read from clipboard. Please grant clipboard permissions.' })
+      setMessage({ type: 'error', text: 'Failed to read from clipboard' })
     }
   }
 
@@ -122,11 +124,9 @@ export default function ImportPage() {
       throw new Error('CSV file is empty')
     }
 
-    // Group exercises by workout
     const workoutMap = new Map<string, { workout: WorkoutInsert; exercises: ExerciseInsert[] }>()
 
     for (const row of data) {
-      // Validate required fields
       if (!row.workout_date || !row.workout_type) {
         throw new Error('Each row must have workout_date and workout_type')
       }
@@ -135,11 +135,9 @@ export default function ImportPage() {
         throw new Error('Each exercise must have exercise_name, expected_sets, expected_reps, rest_in_seconds, and rpe')
       }
 
-      // Create workout key (either id or generated from date + type)
       const workoutKey = row.workout_id || `${row.workout_date}-${row.workout_type}`
       const workoutName = row.workout_name || `${row.workout_date} - ${row.workout_type}`
 
-      // Initialize workout if not exists
       if (!workoutMap.has(workoutKey)) {
         workoutMap.set(workoutKey, {
           workout: {
@@ -155,7 +153,6 @@ export default function ImportPage() {
         })
       }
 
-      // This will be set after workout is inserted
       const exercise: Partial<ExerciseInsert> = {
         workout_name: workoutName,
         exercise_name: row.exercise_name,
@@ -169,9 +166,7 @@ export default function ImportPage() {
       workoutMap.get(workoutKey)!.exercises.push(exercise as ExerciseInsert)
     }
 
-    // Insert workouts and exercises
     for (const [_, { workout, exercises }] of workoutMap) {
-      // Insert workout
       const { data: insertedWorkout, error: workoutError } = await supabase
         .from('workouts')
         // @ts-expect-error Supabase types inference issue
@@ -183,7 +178,6 @@ export default function ImportPage() {
         throw new Error(`Error inserting workout: ${workoutError?.message || 'No workout returned'}`)
       }
 
-      // Update exercises with workout_id and user_id
       const exercisesWithWorkoutId = exercises.map(ex => ({
         ...ex,
         // @ts-expect-error Type narrowing issue
@@ -191,7 +185,6 @@ export default function ImportPage() {
         user_id: user!.id
       }))
 
-      // Insert exercises
       const { error: exercisesError } = await supabase
         .from('exercises')
         // @ts-expect-error Supabase types inference issue
@@ -205,7 +198,17 @@ export default function ImportPage() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <h1 className="text-3xl font-bold text-gray-900 mb-6">Import Workouts</h1>
+      <div className="mb-6">
+        <button
+          onClick={() => navigate('/')}
+          className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
+        >
+          <ArrowLeft size={20} />
+          Back to workouts
+        </button>
+        <h1 className="text-3xl font-bold text-gray-900">Import workouts</h1>
+        <p className="text-gray-600 mt-2">Upload a CSV file with your workout plan</p>
+      </div>
 
       <div className="bg-white rounded-lg shadow-md p-6 mb-6">
         <h2 className="text-lg font-semibold mb-4">CSV Format</h2>
@@ -291,20 +294,15 @@ export default function ImportPage() {
       )}
 
       <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
-        <div className="flex items-start gap-3">
-          <FileText className="text-blue-600 flex-shrink-0" size={24} />
-          <div>
-            <h3 className="font-semibold text-blue-900 mb-2">Import Options</h3>
-            <ul className="text-sm text-blue-800 space-y-1">
-              <li>• <strong>Upload File:</strong> Select a CSV file from your device</li>
-              <li>• <strong>Paste from Clipboard:</strong> Copy CSV data (e.g., from Google Sheets, Excel) and paste directly</li>
-              <li>• <strong>Drag & Drop:</strong> Drag a CSV file into the upload area</li>
-            </ul>
-            <p className="text-sm text-blue-800 mt-3">
-              Each row represents one exercise. Exercises with the same workout_date and workout_type will be grouped into the same workout.
-            </p>
-          </div>
-        </div>
+        <h3 className="font-semibold text-blue-900 mb-2">Import Options</h3>
+        <ul className="text-sm text-blue-800 space-y-1">
+          <li>• <strong>Upload File:</strong> Select a CSV file from your device</li>
+          <li>• <strong>Paste from Clipboard:</strong> Copy CSV data (e.g., from Google Sheets, Excel) and paste directly</li>
+          <li>• <strong>Drag & Drop:</strong> Drag a CSV file into the upload area</li>
+        </ul>
+        <p className="text-sm text-blue-800 mt-3">
+          Each row represents one exercise. Exercises with the same workout_date and workout_type will be grouped into the same workout.
+        </p>
       </div>
     </div>
   )
