@@ -1,9 +1,18 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Save, CheckCircle, Clock, Target } from 'lucide-react'
+import { ArrowLeft, Save, CheckCircle, Clock, Target, Timer, X, Play } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import type { Workout, Exercise } from '../lib/database.types'
 import { format, parseISO } from 'date-fns'
+
+interface TimerState {
+  isActive: boolean
+  exerciseId: string | null
+  exerciseName: string
+  totalSeconds: number
+  remainingSeconds: number
+  isComplete: boolean
+}
 
 export default function WorkoutPage() {
   const { id } = useParams<{ id: string }>()
@@ -12,6 +21,18 @@ export default function WorkoutPage() {
   const [exercises, setExercises] = useState<Exercise[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+
+  // Timer state
+  const [timer, setTimer] = useState<TimerState>({
+    isActive: false,
+    exerciseId: null,
+    exerciseName: '',
+    totalSeconds: 0,
+    remainingSeconds: 0,
+    isComplete: false
+  })
+  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const vibrationIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     if (id) {
@@ -93,6 +114,99 @@ export default function WorkoutPage() {
       setWorkout({ ...workout, status: 'done' })
       alert('Workout marked as complete!')
     }
+  }
+
+  // Timer functions
+  const startRestTimer = useCallback((exercise: Exercise) => {
+    // Clear any existing timer
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current)
+    }
+
+    setTimer({
+      isActive: true,
+      exerciseId: exercise.id,
+      exerciseName: exercise.exercise_name,
+      totalSeconds: exercise.rest_in_seconds,
+      remainingSeconds: exercise.rest_in_seconds,
+      isComplete: false
+    })
+
+    timerIntervalRef.current = setInterval(() => {
+      setTimer(prev => {
+        if (prev.remainingSeconds <= 1) {
+          // Timer complete
+          if (timerIntervalRef.current) {
+            clearInterval(timerIntervalRef.current)
+          }
+          // Start vibration
+          startVibration()
+          return { ...prev, remainingSeconds: 0, isComplete: true }
+        }
+        return { ...prev, remainingSeconds: prev.remainingSeconds - 1 }
+      })
+    }, 1000)
+  }, [])
+
+  const startVibration = () => {
+    // Vibrate pattern: vibrate for 500ms, pause for 200ms, repeat
+    if ('vibrate' in navigator) {
+      // Create repeating vibration pattern
+      vibrationIntervalRef.current = setInterval(() => {
+        navigator.vibrate([500, 200, 500])
+      }, 1400)
+      // Initial vibration
+      navigator.vibrate([500, 200, 500])
+    }
+  }
+
+  const stopTimer = useCallback(() => {
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current)
+      timerIntervalRef.current = null
+    }
+    if (vibrationIntervalRef.current) {
+      clearInterval(vibrationIntervalRef.current)
+      vibrationIntervalRef.current = null
+    }
+    // Stop any ongoing vibration
+    if ('vibrate' in navigator) {
+      navigator.vibrate(0)
+    }
+    setTimer({
+      isActive: false,
+      exerciseId: null,
+      exerciseName: '',
+      totalSeconds: 0,
+      remainingSeconds: 0,
+      isComplete: false
+    })
+  }, [])
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current)
+      }
+      if (vibrationIntervalRef.current) {
+        clearInterval(vibrationIntervalRef.current)
+      }
+      if ('vibrate' in navigator) {
+        navigator.vibrate(0)
+      }
+    }
+  }, [])
+
+  const formatTimerDisplay = (seconds: number) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${mins}:${secs.toString().padStart(2, '0')}`
+  }
+
+  const getProgressPercentage = () => {
+    if (timer.totalSeconds === 0) return 0
+    return ((timer.totalSeconds - timer.remainingSeconds) / timer.totalSeconds) * 100
   }
 
   if (loading) {
@@ -256,14 +370,23 @@ export default function WorkoutPage() {
               />
             </div>
 
-            <button
-              onClick={() => saveExercise(exercise)}
-              disabled={saving}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 active:bg-blue-800 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-sm sm:text-base font-medium"
-            >
-              <Save size={16} />
-              Save
-            </button>
+            <div className="flex gap-2 sm:gap-3">
+              <button
+                onClick={() => saveExercise(exercise)}
+                disabled={saving}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 active:bg-blue-800 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-sm sm:text-base font-medium"
+              >
+                <Save size={16} />
+                Save
+              </button>
+              <button
+                onClick={() => startRestTimer(exercise)}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-orange-500 text-white px-4 py-2.5 rounded-lg hover:bg-orange-600 active:bg-orange-700 transition-colors text-sm sm:text-base font-medium"
+              >
+                <Timer size={16} />
+                Rest
+              </button>
+            </div>
           </div>
         ))}
       </div>
@@ -277,6 +400,104 @@ export default function WorkoutPage() {
             <CheckCircle size={22} />
             Complete Workout
           </button>
+        </div>
+      )}
+
+      {/* Rest Timer Overlay */}
+      {timer.isActive && (
+        <div className="fixed inset-0 bg-black/90 z-50 flex flex-col items-center justify-center p-6">
+          {/* Close button */}
+          <button
+            onClick={stopTimer}
+            className="absolute top-4 right-4 sm:top-6 sm:right-6 text-white/70 hover:text-white p-2"
+          >
+            <X size={28} />
+          </button>
+
+          {/* Exercise name */}
+          <p className="text-white/70 text-sm sm:text-base mb-2 text-center">
+            Rest after
+          </p>
+          <h2 className="text-white text-xl sm:text-2xl font-semibold mb-8 sm:mb-12 text-center px-4">
+            {timer.exerciseName}
+          </h2>
+
+          {/* Circular progress */}
+          <div className="relative w-56 h-56 sm:w-72 sm:h-72 mb-8 sm:mb-12">
+            {/* Background circle */}
+            <svg className="w-full h-full transform -rotate-90">
+              <circle
+                cx="50%"
+                cy="50%"
+                r="45%"
+                stroke="rgba(255,255,255,0.2)"
+                strokeWidth="8"
+                fill="none"
+              />
+              {/* Progress circle */}
+              <circle
+                cx="50%"
+                cy="50%"
+                r="45%"
+                stroke={timer.isComplete ? '#22c55e' : '#f97316'}
+                strokeWidth="8"
+                fill="none"
+                strokeLinecap="round"
+                strokeDasharray={`${2 * Math.PI * 45} ${2 * Math.PI * 45}`}
+                strokeDashoffset={`${2 * Math.PI * 45 * (1 - getProgressPercentage() / 100)}`}
+                className="transition-all duration-1000 ease-linear"
+                style={{
+                  strokeDasharray: `${2 * Math.PI * 45 * (getProgressPercentage() / 100)}% ${2 * Math.PI * 45}%`
+                }}
+              />
+            </svg>
+
+            {/* Timer display in center */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              {timer.isComplete ? (
+                <div className="text-center">
+                  <p className="text-green-400 text-5xl sm:text-7xl font-bold mb-2">
+                    0:00
+                  </p>
+                  <p className="text-green-400 text-lg sm:text-xl font-medium">
+                    Time's up!
+                  </p>
+                </div>
+              ) : (
+                <p className="text-white text-5xl sm:text-7xl font-bold tabular-nums">
+                  {formatTimerDisplay(timer.remainingSeconds)}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Action button */}
+          {timer.isComplete ? (
+            <button
+              onClick={stopTimer}
+              className="flex items-center justify-center gap-3 bg-green-500 text-white px-12 sm:px-16 py-4 sm:py-5 rounded-full hover:bg-green-600 active:bg-green-700 transition-all text-xl sm:text-2xl font-bold shadow-lg shadow-green-500/30 animate-pulse"
+            >
+              <Play size={28} fill="white" />
+              GO!
+            </button>
+          ) : (
+            <button
+              onClick={stopTimer}
+              className="text-white/60 hover:text-white text-sm sm:text-base underline"
+            >
+              Cancel timer
+            </button>
+          )}
+
+          {/* Progress bar at bottom */}
+          <div className="absolute bottom-0 left-0 right-0 h-1 sm:h-1.5 bg-white/20">
+            <div
+              className={`h-full transition-all duration-1000 ease-linear ${
+                timer.isComplete ? 'bg-green-500' : 'bg-orange-500'
+              }`}
+              style={{ width: `${getProgressPercentage()}%` }}
+            />
+          </div>
         </div>
       )}
     </div>
