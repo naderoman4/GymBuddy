@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Save, CheckCircle, Clock, Target, Timer, X, Play } from 'lucide-react'
+import { ArrowLeft, Save, CheckCircle, Clock, Target, Timer, X, Dumbbell } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import type { Workout, Exercise } from '../lib/database.types'
 import { format, parseISO } from 'date-fns'
@@ -32,7 +32,8 @@ export default function WorkoutPage() {
     isComplete: false
   })
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null)
-  const vibrationIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const audioContextRef = useRef<AudioContext | null>(null)
+  const alarmIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     if (id) {
@@ -116,12 +117,69 @@ export default function WorkoutPage() {
     }
   }
 
-  // Timer functions
+  // Timer functions - alarm sound
+  const playAlarmSound = useCallback(() => {
+    try {
+      // Create audio context if it doesn't exist
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || (window as typeof window & { webkitAudioContext: typeof AudioContext }).webkitAudioContext)()
+      }
+
+      const ctx = audioContextRef.current
+
+      // Resume context if suspended (required for mobile)
+      if (ctx.state === 'suspended') {
+        ctx.resume()
+      }
+
+      // Create a pleasant alarm sound (two-tone beep)
+      const playBeep = () => {
+        const oscillator1 = ctx.createOscillator()
+        const oscillator2 = ctx.createOscillator()
+        const gainNode = ctx.createGain()
+
+        oscillator1.connect(gainNode)
+        oscillator2.connect(gainNode)
+        gainNode.connect(ctx.destination)
+
+        // Two-tone alarm (like a gym timer)
+        oscillator1.frequency.value = 880 // A5
+        oscillator2.frequency.value = 1100 // C#6
+        oscillator1.type = 'sine'
+        oscillator2.type = 'sine'
+
+        gainNode.gain.setValueAtTime(0.3, ctx.currentTime)
+        gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5)
+
+        oscillator1.start(ctx.currentTime)
+        oscillator2.start(ctx.currentTime)
+        oscillator1.stop(ctx.currentTime + 0.5)
+        oscillator2.stop(ctx.currentTime + 0.5)
+      }
+
+      // Play initial beep
+      playBeep()
+
+      // Repeat every 800ms
+      alarmIntervalRef.current = setInterval(playBeep, 800)
+    } catch (e) {
+      console.log('Audio not supported')
+    }
+  }, [])
+
+  const stopAlarm = useCallback(() => {
+    if (alarmIntervalRef.current) {
+      clearInterval(alarmIntervalRef.current)
+      alarmIntervalRef.current = null
+    }
+  }, [])
+
   const startRestTimer = useCallback((exercise: Exercise) => {
     // Clear any existing timer
     if (timerIntervalRef.current) {
       clearInterval(timerIntervalRef.current)
     }
+    stopAlarm()
 
     setTimer({
       isActive: true,
@@ -139,40 +197,21 @@ export default function WorkoutPage() {
           if (timerIntervalRef.current) {
             clearInterval(timerIntervalRef.current)
           }
-          // Start vibration
-          startVibration()
+          // Start alarm sound
+          playAlarmSound()
           return { ...prev, remainingSeconds: 0, isComplete: true }
         }
         return { ...prev, remainingSeconds: prev.remainingSeconds - 1 }
       })
     }, 1000)
-  }, [])
-
-  const startVibration = () => {
-    // Vibrate pattern: vibrate for 500ms, pause for 200ms, repeat
-    if ('vibrate' in navigator) {
-      // Create repeating vibration pattern
-      vibrationIntervalRef.current = setInterval(() => {
-        navigator.vibrate([500, 200, 500])
-      }, 1400)
-      // Initial vibration
-      navigator.vibrate([500, 200, 500])
-    }
-  }
+  }, [playAlarmSound, stopAlarm])
 
   const stopTimer = useCallback(() => {
     if (timerIntervalRef.current) {
       clearInterval(timerIntervalRef.current)
       timerIntervalRef.current = null
     }
-    if (vibrationIntervalRef.current) {
-      clearInterval(vibrationIntervalRef.current)
-      vibrationIntervalRef.current = null
-    }
-    // Stop any ongoing vibration
-    if ('vibrate' in navigator) {
-      navigator.vibrate(0)
-    }
+    stopAlarm()
     setTimer({
       isActive: false,
       exerciseId: null,
@@ -181,7 +220,7 @@ export default function WorkoutPage() {
       remainingSeconds: 0,
       isComplete: false
     })
-  }, [])
+  }, [stopAlarm])
 
   // Cleanup on unmount
   useEffect(() => {
@@ -189,14 +228,12 @@ export default function WorkoutPage() {
       if (timerIntervalRef.current) {
         clearInterval(timerIntervalRef.current)
       }
-      if (vibrationIntervalRef.current) {
-        clearInterval(vibrationIntervalRef.current)
-      }
-      if ('vibrate' in navigator) {
-        navigator.vibrate(0)
+      stopAlarm()
+      if (audioContextRef.current) {
+        audioContextRef.current.close()
       }
     }
-  }, [])
+  }, [stopAlarm])
 
   const formatTimerDisplay = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
@@ -405,7 +442,7 @@ export default function WorkoutPage() {
 
       {/* Rest Timer Overlay */}
       {timer.isActive && (
-        <div className="fixed inset-0 bg-black/90 z-50 flex flex-col items-center justify-center p-6">
+        <div className="fixed inset-0 bg-black z-50 flex flex-col items-center justify-center p-6">
           {/* Close button */}
           <button
             onClick={stopTimer}
@@ -424,31 +461,29 @@ export default function WorkoutPage() {
 
           {/* Circular progress */}
           <div className="relative w-56 h-56 sm:w-72 sm:h-72 mb-8 sm:mb-12">
-            {/* Background circle */}
-            <svg className="w-full h-full transform -rotate-90">
+            <svg className="w-full h-full" viewBox="0 0 100 100">
+              {/* Background circle */}
               <circle
-                cx="50%"
-                cy="50%"
-                r="45%"
-                stroke="rgba(255,255,255,0.2)"
-                strokeWidth="8"
+                cx="50"
+                cy="50"
+                r="45"
+                stroke="rgba(255,255,255,0.15)"
+                strokeWidth="6"
                 fill="none"
               />
-              {/* Progress circle */}
+              {/* Progress circle - starts from top (12 o'clock position) */}
               <circle
-                cx="50%"
-                cy="50%"
-                r="45%"
+                cx="50"
+                cy="50"
+                r="45"
                 stroke={timer.isComplete ? '#22c55e' : '#f97316'}
-                strokeWidth="8"
+                strokeWidth="6"
                 fill="none"
                 strokeLinecap="round"
-                strokeDasharray={`${2 * Math.PI * 45} ${2 * Math.PI * 45}`}
+                strokeDasharray={`${2 * Math.PI * 45}`}
                 strokeDashoffset={`${2 * Math.PI * 45 * (1 - getProgressPercentage() / 100)}`}
-                className="transition-all duration-1000 ease-linear"
-                style={{
-                  strokeDasharray: `${2 * Math.PI * 45 * (getProgressPercentage() / 100)}% ${2 * Math.PI * 45}%`
-                }}
+                transform="rotate(-90 50 50)"
+                className="transition-[stroke-dashoffset] duration-1000 ease-linear"
               />
             </svg>
 
@@ -475,10 +510,10 @@ export default function WorkoutPage() {
           {timer.isComplete ? (
             <button
               onClick={stopTimer}
-              className="flex items-center justify-center gap-3 bg-green-500 text-white px-12 sm:px-16 py-4 sm:py-5 rounded-full hover:bg-green-600 active:bg-green-700 transition-all text-xl sm:text-2xl font-bold shadow-lg shadow-green-500/30 animate-pulse"
+              className="flex items-center justify-center gap-3 bg-green-500 text-white px-10 sm:px-14 py-4 sm:py-5 rounded-full hover:bg-green-600 active:bg-green-700 transition-all text-lg sm:text-xl font-bold shadow-lg shadow-green-500/30 animate-pulse"
             >
-              <Play size={28} fill="white" />
-              GO!
+              <Dumbbell size={24} />
+              Lift again!
             </button>
           ) : (
             <button
@@ -490,7 +525,7 @@ export default function WorkoutPage() {
           )}
 
           {/* Progress bar at bottom */}
-          <div className="absolute bottom-0 left-0 right-0 h-1 sm:h-1.5 bg-white/20">
+          <div className="absolute bottom-0 left-0 right-0 h-1 sm:h-1.5 bg-white/10">
             <div
               className={`h-full transition-all duration-1000 ease-linear ${
                 timer.isComplete ? 'bg-green-500' : 'bg-orange-500'
