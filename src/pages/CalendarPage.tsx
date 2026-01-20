@@ -123,7 +123,7 @@ export default function CalendarPage() {
       case 'done':
         return 'bg-green-50 border-green-200 hover:bg-green-100'
       case 'planned':
-        return 'bg-blue-50 border-blue-200 hover:bg-blue-100'
+        return 'bg-orange-50 border-orange-200 hover:bg-orange-100'
       default:
         return 'bg-gray-50 border-gray-200 hover:bg-gray-100'
     }
@@ -134,10 +134,14 @@ export default function CalendarPage() {
       case 'done':
         return 'bg-green-500 text-white'
       case 'planned':
-        return 'bg-blue-500 text-white'
+        return 'bg-orange-500 text-white'
       default:
         return 'bg-gray-500 text-white'
     }
+  }
+
+  const capitalizeStatus = (status: string) => {
+    return status.charAt(0).toUpperCase() + status.slice(1)
   }
 
   const dismissTips = () => {
@@ -192,7 +196,7 @@ export default function CalendarPage() {
           <ul className="text-sm text-blue-800 space-y-1">
             <li>• Tap on a workout to view details and track progress</li>
             <li>• Tap the checkbox on completed workouts to select for export</li>
-            <li>• Green = completed, Blue = planned</li>
+            <li>• Green = completed, Orange = planned</li>
           </ul>
         </div>
       )}
@@ -308,7 +312,7 @@ export default function CalendarPage() {
 
                             {/* Status badge */}
                             <span className={`flex-shrink-0 text-xs px-2 py-1 rounded-full ${getStatusBadgeColor(workout.status)}`}>
-                              {workout.status}
+                              {capitalizeStatus(workout.status)}
                             </span>
                           </div>
                         ))}
