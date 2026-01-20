@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, parseISO } from 'date-fns'
-import { ChevronLeft, ChevronRight, Download, Dumbbell, X, Plus, FileUp } from 'lucide-react'
+import { format, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, parseISO, addWeeks, subWeeks } from 'date-fns'
+import { ChevronLeft, ChevronRight, Download, Dumbbell, X, Plus, FileUp, Check } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import type { Workout, Exercise } from '../lib/database.types'
+import type { Workout } from '../lib/database.types'
 import Papa from 'papaparse'
 
 export default function CalendarPage() {
@@ -19,6 +19,11 @@ export default function CalendarPage() {
     const dismissed = localStorage.getItem('calendarTipsDismissed')
     return dismissed !== 'true'
   })
+
+  // Get week boundaries
+  const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 }) // Monday
+  const weekEnd = endOfWeek(currentDate, { weekStartsOn: 1 })
+  const weekDays = eachDayOfInterval({ start: weekStart, end: weekEnd })
 
   useEffect(() => {
     fetchWorkouts()
@@ -45,14 +50,12 @@ export default function CalendarPage() {
 
   const fetchWorkouts = async () => {
     setLoading(true)
-    const start = startOfMonth(currentDate)
-    const end = endOfMonth(currentDate)
 
     const { data, error } = await supabase
       .from('workouts')
       .select('*')
-      .gte('date', format(start, 'yyyy-MM-dd'))
-      .lte('date', format(end, 'yyyy-MM-dd'))
+      .gte('date', format(weekStart, 'yyyy-MM-dd'))
+      .lte('date', format(weekEnd, 'yyyy-MM-dd'))
       .order('date', { ascending: true })
 
     if (!error && data) {
@@ -61,12 +64,16 @@ export default function CalendarPage() {
     setLoading(false)
   }
 
-  const previousMonth = () => {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1))
+  const previousWeek = () => {
+    setCurrentDate(subWeeks(currentDate, 1))
   }
 
-  const nextMonth = () => {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1))
+  const nextWeek = () => {
+    setCurrentDate(addWeeks(currentDate, 1))
+  }
+
+  const goToToday = () => {
+    setCurrentDate(new Date())
   }
 
   const toggleWorkoutSelection = (workoutId: string, status: string) => {
@@ -95,7 +102,6 @@ export default function CalendarPage() {
       return
     }
 
-    // Convert to CSV
     const csv = Papa.unparse(exercises)
     const blob = new Blob([csv], { type: 'text/csv' })
     const url = window.URL.createObjectURL(blob)
@@ -112,18 +118,25 @@ export default function CalendarPage() {
     )
   }
 
-  const monthStart = startOfMonth(currentDate)
-  const monthEnd = endOfMonth(currentDate)
-  const days = eachDayOfInterval({ start: monthStart, end: monthEnd })
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'done':
-        return 'bg-green-100 text-green-800 border-green-300'
+        return 'bg-green-50 border-green-200 hover:bg-green-100'
       case 'planned':
-        return 'bg-blue-100 text-blue-800 border-blue-300'
+        return 'bg-blue-50 border-blue-200 hover:bg-blue-100'
       default:
-        return 'bg-gray-100 text-gray-800 border-gray-300'
+        return 'bg-gray-50 border-gray-200 hover:bg-gray-100'
+    }
+  }
+
+  const getStatusBadgeColor = (status: string) => {
+    switch (status) {
+      case 'done':
+        return 'bg-green-500 text-white'
+      case 'planned':
+        return 'bg-blue-500 text-white'
+      default:
+        return 'bg-gray-500 text-white'
     }
   }
 
@@ -132,9 +145,11 @@ export default function CalendarPage() {
     setShowTips(false)
   }
 
+  const isToday = (date: Date) => isSameDay(date, new Date())
+
   return (
-    <div className="max-w-7xl mx-auto">
-      {/* Header - stacks on mobile */}
+    <div className="max-w-4xl mx-auto">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">My workouts</h1>
 
@@ -142,22 +157,22 @@ export default function CalendarPage() {
           {selectedWorkouts.size > 0 && (
             <button
               onClick={exportSelectedWorkouts}
-              className="flex items-center gap-2 bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm sm:text-base"
+              className="flex items-center gap-2 bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-green-700 active:bg-green-800 transition-colors text-sm sm:text-base"
             >
               <Download size={18} />
-              <span className="hidden xs:inline">Export</span> {selectedWorkouts.size}
+              Export {selectedWorkouts.size}
             </button>
           )}
           <Link
             to="/import"
-            className="flex items-center gap-2 bg-white text-gray-700 px-3 sm:px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors text-sm sm:text-base"
+            className="flex items-center gap-2 bg-white text-gray-700 px-3 sm:px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 active:bg-gray-100 transition-colors text-sm sm:text-base"
           >
             <FileUp size={18} />
             <span className="hidden sm:inline">Import</span>
           </Link>
           <Link
             to="/create"
-            className="flex items-center gap-2 bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-semibold text-sm sm:text-base"
+            className="flex items-center gap-2 bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors font-semibold text-sm sm:text-base"
           >
             <Plus size={18} />
             <span className="hidden sm:inline">Create</span>
@@ -175,28 +190,37 @@ export default function CalendarPage() {
           </button>
           <h3 className="font-semibold text-blue-900 mb-2">Tips:</h3>
           <ul className="text-sm text-blue-800 space-y-1">
-            <li>• Click on a workout to view details and track your progress</li>
-            <li>• Select completed workouts (done status) using checkboxes to export</li>
-            <li>• Green workouts are completed, blue are planned</li>
+            <li>• Tap on a workout to view details and track progress</li>
+            <li>• Tap the checkbox on completed workouts to select for export</li>
+            <li>• Green = completed, Blue = planned</li>
           </ul>
         </div>
       )}
 
-      <div className="bg-white rounded-lg shadow-md p-3 sm:p-6">
+      {/* Week Navigation */}
+      <div className="bg-white rounded-lg shadow-md p-4 sm:p-6">
         <div className="flex items-center justify-between mb-4 sm:mb-6">
           <button
-            onClick={previousMonth}
+            onClick={previousWeek}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors active:bg-gray-200"
           >
             <ChevronLeft size={24} />
           </button>
 
-          <h2 className="text-lg sm:text-2xl font-semibold">
-            {format(currentDate, 'MMMM yyyy')}
-          </h2>
+          <div className="text-center">
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-900">
+              {format(weekStart, 'MMM d')} - {format(weekEnd, 'MMM d, yyyy')}
+            </h2>
+            <button
+              onClick={goToToday}
+              className="text-sm text-blue-600 hover:text-blue-700 mt-1"
+            >
+              Today
+            </button>
+          </div>
 
           <button
-            onClick={nextMonth}
+            onClick={nextWeek}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors active:bg-gray-200"
           >
             <ChevronRight size={24} />
@@ -208,60 +232,88 @@ export default function CalendarPage() {
             <p className="text-gray-500">Loading workouts...</p>
           </div>
         ) : (
-          <div className="grid grid-cols-7 gap-1 sm:gap-2">
-            {/* Day headers - abbreviated on mobile */}
-            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
-              <div key={index} className="text-center font-semibold text-gray-600 py-1 sm:py-2 text-xs sm:text-sm">
-                <span className="sm:hidden">{day}</span>
-                <span className="hidden sm:inline">{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][index]}</span>
-              </div>
-            ))}
-
-            {/* Add empty cells for days before month starts */}
-            {Array.from({ length: monthStart.getDay() }).map((_, i) => (
-              <div key={`empty-${i}`} className="aspect-square" />
-            ))}
-
-            {days.map(day => {
+          <div className="space-y-3">
+            {weekDays.map(day => {
               const dayWorkouts = getWorkoutsForDate(day)
-              const isCurrentMonth = isSameMonth(day, currentDate)
-              const isToday = isSameDay(day, new Date())
+              const today = isToday(day)
 
               return (
                 <div
                   key={day.toISOString()}
-                  className={`min-h-[60px] sm:min-h-[80px] md:min-h-[100px] border rounded-lg p-1 sm:p-2 ${
-                    isCurrentMonth ? 'bg-white' : 'bg-gray-50'
-                  } ${isToday ? 'ring-2 ring-blue-500' : ''}`}
+                  className={`rounded-lg border ${today ? 'border-blue-300 bg-blue-50/50' : 'border-gray-200 bg-gray-50/50'}`}
                 >
-                  <div className={`text-xs sm:text-sm font-semibold mb-1 ${isToday ? 'text-blue-600' : ''}`}>
-                    {format(day, 'd')}
+                  {/* Day header */}
+                  <div className={`px-4 py-2 border-b ${today ? 'border-blue-200 bg-blue-100/50' : 'border-gray-200 bg-gray-100/50'} rounded-t-lg`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className={`font-semibold ${today ? 'text-blue-700' : 'text-gray-700'}`}>
+                          {format(day, 'EEEE')}
+                        </span>
+                        <span className={`text-sm ${today ? 'text-blue-600' : 'text-gray-500'}`}>
+                          {format(day, 'MMM d')}
+                        </span>
+                      </div>
+                      {today && (
+                        <span className="text-xs bg-blue-600 text-white px-2 py-0.5 rounded-full">
+                          Today
+                        </span>
+                      )}
+                    </div>
                   </div>
 
-                  <div className="space-y-1">
-                    {dayWorkouts.map(workout => (
-                      <div key={workout.id} className="relative">
-                        <Link
-                          to={`/workout/${workout.id}`}
-                          className={`block text-xs p-1 rounded border ${getStatusColor(workout.status)} hover:shadow-md active:scale-95 transition-all`}
-                        >
-                          <div className="flex items-center gap-1">
-                            <Dumbbell size={10} className="flex-shrink-0 hidden sm:block" />
-                            <span className="truncate text-[10px] sm:text-xs">{workout.workout_type}</span>
-                          </div>
-                        </Link>
+                  {/* Workouts for this day */}
+                  <div className="p-3">
+                    {dayWorkouts.length === 0 ? (
+                      <p className="text-sm text-gray-400 italic py-2">No workouts</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {dayWorkouts.map(workout => (
+                          <div
+                            key={workout.id}
+                            className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${getStatusColor(workout.status)}`}
+                          >
+                            {/* Checkbox for completed workouts */}
+                            {workout.status === 'done' && (
+                              <button
+                                onClick={() => toggleWorkoutSelection(workout.id, workout.status)}
+                                className={`flex-shrink-0 w-6 h-6 rounded border-2 flex items-center justify-center transition-all ${
+                                  selectedWorkouts.has(workout.id)
+                                    ? 'bg-blue-600 border-blue-600'
+                                    : 'bg-white border-gray-300 hover:border-blue-400'
+                                }`}
+                              >
+                                {selectedWorkouts.has(workout.id) && (
+                                  <Check size={14} className="text-white" />
+                                )}
+                              </button>
+                            )}
 
-                        {workout.status === 'done' && (
-                          <input
-                            type="checkbox"
-                            checked={selectedWorkouts.has(workout.id)}
-                            onChange={() => toggleWorkoutSelection(workout.id, workout.status)}
-                            className="absolute -top-1 -right-1 w-4 h-4 sm:w-4 sm:h-4 cursor-pointer"
-                            title="Select for export"
-                          />
-                        )}
+                            {/* Workout info - clickable */}
+                            <Link
+                              to={`/workout/${workout.id}`}
+                              className="flex-1 min-w-0"
+                            >
+                              <div className="flex items-center gap-2">
+                                <Dumbbell size={16} className="flex-shrink-0 text-gray-500" />
+                                <span className="font-medium text-gray-900 truncate">
+                                  {workout.name}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="text-xs text-gray-500">
+                                  {workout.workout_type}
+                                </span>
+                              </div>
+                            </Link>
+
+                            {/* Status badge */}
+                            <span className={`flex-shrink-0 text-xs px-2 py-1 rounded-full ${getStatusBadgeColor(workout.status)}`}>
+                              {workout.status}
+                            </span>
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    )}
                   </div>
                 </div>
               )
