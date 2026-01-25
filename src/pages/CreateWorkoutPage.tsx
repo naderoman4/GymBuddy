@@ -297,7 +297,7 @@ export default function CreateWorkoutPage() {
               {/* Add Exercise Button */}
               <button
                 onClick={addExercise}
-                className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors font-semibold text-sm sm:text-base"
+                className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-gray-300 text-gray-600 px-4 py-3 rounded-lg hover:border-blue-500 hover:text-blue-600 active:bg-blue-50 transition-colors font-medium text-sm sm:text-base"
               >
                 <Plus size={20} />
                 Add Exercise
