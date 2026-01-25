@@ -91,9 +91,14 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                Password
-              </label>
+              <div className="flex justify-between items-center mb-2">
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                  Password
+                </label>
+                <Link to="/forgot-password" className="text-sm text-blue-600 hover:text-blue-700">
+                  Forgot password?
+                </Link>
+              </div>
               <div className="relative">
                 <input
                   id="password"
@@ -156,6 +161,15 @@ export default function LoginPage() {
               <Link to="/signup" className="text-blue-600 hover:text-blue-700 font-semibold">
                 Create one
               </Link>
+            </p>
+          </div>
+
+          <div className="mt-8 pt-6 border-t border-gray-200">
+            <p className="text-xs text-gray-500 text-center">
+              By signing in, you agree to our{' '}
+              <Link to="/terms" className="text-blue-600 hover:underline">Terms of Service</Link>
+              {' '}and{' '}
+              <Link to="/privacy" className="text-blue-600 hover:underline">Privacy Policy</Link>
             </p>
           </div>
         </div>

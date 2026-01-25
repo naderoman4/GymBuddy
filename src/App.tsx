@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom'
-import { Dumbbell, LogOut } from 'lucide-react'
+import { Dumbbell, User } from 'lucide-react'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import CalendarPage from './pages/CalendarPage'
@@ -9,21 +9,22 @@ import SignupPage from './pages/SignupPage'
 import OnboardingPage from './pages/OnboardingPage'
 import CreateWorkoutPage from './pages/CreateWorkoutPage'
 import ImportWorkoutPage from './pages/ImportWorkoutPage'
+import ForgotPasswordPage from './pages/ForgotPasswordPage'
+import ProfilePage from './pages/ProfilePage'
+import TermsPage from './pages/TermsPage'
+import PrivacyPage from './pages/PrivacyPage'
 
 function Navigation() {
   const location = useLocation()
-  const { user, signOut } = useAuth()
+  const { user } = useAuth()
 
   const isActive = (path: string) => {
     return location.pathname === path
   }
 
-  const handleSignOut = async () => {
-    await signOut()
-  }
-
-  // Don't show nav on login/signup/onboarding pages
-  if (location.pathname === '/login' || location.pathname === '/signup' || location.pathname === '/onboarding') {
+  // Don't show nav on login/signup/onboarding/legal pages
+  const hiddenPaths = ['/login', '/signup', '/onboarding', '/forgot-password', '/terms', '/privacy']
+  if (hiddenPaths.includes(location.pathname)) {
     return null
   }
 
@@ -35,12 +36,12 @@ function Navigation() {
             <img src="/logo.png" alt="GymBuddy Logo" className="h-8 w-auto" />
           </Link>
 
-          <div className="flex gap-4 items-center">
+          <div className="flex gap-2 sm:gap-4 items-center">
             {user && (
               <>
                 <Link
                   to="/"
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                  className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg transition-colors ${
                     isActive('/') ? 'bg-blue-600' : 'hover:bg-gray-700'
                   }`}
                 >
@@ -48,13 +49,15 @@ function Navigation() {
                   <span className="hidden sm:inline">My Workouts</span>
                 </Link>
 
-                <button
-                  onClick={handleSignOut}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg transition-colors hover:bg-red-600"
+                <Link
+                  to="/profile"
+                  className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg transition-colors ${
+                    isActive('/profile') ? 'bg-blue-600' : 'hover:bg-gray-700'
+                  }`}
                 >
-                  <LogOut size={20} />
-                  <span className="hidden sm:inline">Logout</span>
-                </button>
+                  <User size={20} />
+                  <span className="hidden sm:inline">Profile</span>
+                </Link>
               </>
             )}
           </div>
@@ -66,16 +69,20 @@ function Navigation() {
 
 function AppContent() {
   const location = useLocation()
-  const isAuthPage = location.pathname === '/login' || location.pathname === '/signup'
+  const isAuthPage = ['/login', '/signup', '/forgot-password'].includes(location.pathname)
   const isOnboarding = location.pathname === '/onboarding'
+  const isLegalPage = ['/terms', '/privacy'].includes(location.pathname)
 
   return (
     <div className={isAuthPage || isOnboarding ? '' : 'min-h-screen bg-gray-50'}>
       <Navigation />
-      <main className={isAuthPage || isOnboarding ? '' : 'container mx-auto px-4 py-8'}>
+      <main className={isAuthPage || isOnboarding ? '' : isLegalPage ? 'container mx-auto px-4 py-8 bg-gray-50 min-h-screen' : 'container mx-auto px-4 py-8'}>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/terms" element={<TermsPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
           <Route
             path="/onboarding"
             element={
@@ -113,6 +120,14 @@ function AppContent() {
             element={
               <ProtectedRoute>
                 <WorkoutPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <ProfilePage />
               </ProtectedRoute>
             }
           />
