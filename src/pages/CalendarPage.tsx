@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, parseISO, addWeeks, subWeeks } from 'date-fns'
-import { ChevronLeft, ChevronRight, Download, Dumbbell, X, Plus, FileUp, Check } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Download, Dumbbell, X, Plus, FileUp, Check, Trash2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import type { Workout } from '../lib/database.types'
@@ -76,9 +76,7 @@ export default function CalendarPage() {
     setCurrentDate(new Date())
   }
 
-  const toggleWorkoutSelection = (workoutId: string, status: string) => {
-    if (status !== 'done') return
-
+  const toggleWorkoutSelection = (workoutId: string) => {
     const newSelection = new Set(selectedWorkouts)
     if (newSelection.has(workoutId)) {
       newSelection.delete(workoutId)
@@ -110,6 +108,28 @@ export default function CalendarPage() {
     a.download = `workouts-export-${format(new Date(), 'yyyy-MM-dd')}.csv`
     a.click()
     window.URL.revokeObjectURL(url)
+  }
+
+  const deleteSelectedWorkouts = async () => {
+    if (selectedWorkouts.size === 0) return
+
+    const workoutIds = Array.from(selectedWorkouts)
+    const confirmed = window.confirm(
+      `Are you sure you want to delete ${workoutIds.length} workout${workoutIds.length > 1 ? 's' : ''}? This will also delete all associated exercises. This action cannot be undone.`
+    )
+    if (!confirmed) return
+
+    const { error } = await supabase
+      .from('workouts')
+      .delete()
+      .in('id', workoutIds)
+
+    if (error) {
+      alert('Error deleting workouts: ' + error.message)
+    } else {
+      setSelectedWorkouts(new Set())
+      fetchWorkouts()
+    }
   }
 
   const getWorkoutsForDate = (date: Date) => {
@@ -159,13 +179,22 @@ export default function CalendarPage() {
 
         <div className="flex flex-wrap gap-2 sm:gap-3">
           {selectedWorkouts.size > 0 && (
-            <button
-              onClick={exportSelectedWorkouts}
-              className="flex items-center gap-2 bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-green-700 active:bg-green-800 transition-colors text-sm sm:text-base"
-            >
-              <Download size={18} />
-              Export {selectedWorkouts.size}
-            </button>
+            <>
+              <button
+                onClick={deleteSelectedWorkouts}
+                className="flex items-center gap-2 bg-red-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-red-700 active:bg-red-800 transition-colors text-sm sm:text-base"
+              >
+                <Trash2 size={18} />
+                <span className="hidden sm:inline">Delete</span> {selectedWorkouts.size}
+              </button>
+              <button
+                onClick={exportSelectedWorkouts}
+                className="flex items-center gap-2 bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-green-700 active:bg-green-800 transition-colors text-sm sm:text-base"
+              >
+                <Download size={18} />
+                <span className="hidden sm:inline">Export</span> {selectedWorkouts.size}
+              </button>
+            </>
           )}
           <Link
             to="/import"
@@ -195,7 +224,7 @@ export default function CalendarPage() {
           <h3 className="font-semibold text-blue-900 mb-2">Tips:</h3>
           <ul className="text-sm text-blue-800 space-y-1">
             <li>• Tap on a workout to view details and track progress</li>
-            <li>• Tap the checkbox on completed workouts to select for export</li>
+            <li>• Tap the checkbox to select workouts for export or deletion</li>
             <li>• Green = completed, Orange = planned</li>
           </ul>
         </div>
@@ -276,21 +305,19 @@ export default function CalendarPage() {
                             key={workout.id}
                             className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${getStatusColor(workout.status)}`}
                           >
-                            {/* Checkbox for completed workouts */}
-                            {workout.status === 'done' && (
-                              <button
-                                onClick={() => toggleWorkoutSelection(workout.id, workout.status)}
-                                className={`flex-shrink-0 w-6 h-6 rounded border-2 flex items-center justify-center transition-all ${
-                                  selectedWorkouts.has(workout.id)
-                                    ? 'bg-blue-600 border-blue-600'
-                                    : 'bg-white border-gray-300 hover:border-blue-400'
-                                }`}
-                              >
-                                {selectedWorkouts.has(workout.id) && (
-                                  <Check size={14} className="text-white" />
-                                )}
-                              </button>
-                            )}
+                            {/* Checkbox for all workouts */}
+                            <button
+                              onClick={() => toggleWorkoutSelection(workout.id)}
+                              className={`flex-shrink-0 w-6 h-6 rounded border-2 flex items-center justify-center transition-all ${
+                                selectedWorkouts.has(workout.id)
+                                  ? 'bg-blue-600 border-blue-600'
+                                  : 'bg-white border-gray-300 hover:border-blue-400'
+                              }`}
+                            >
+                              {selectedWorkouts.has(workout.id) && (
+                                <Check size={14} className="text-white" />
+                              )}
+                            </button>
 
                             {/* Workout info - clickable */}
                             <Link

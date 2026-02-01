@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Save, CheckCircle, Clock, Target, Timer, X, Dumbbell } from 'lucide-react'
+import { ArrowLeft, Save, CheckCircle, Clock, Target, Timer, X, Dumbbell, Trash2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import type { Workout, Exercise } from '../lib/database.types'
 import { format, parseISO } from 'date-fns'
@@ -114,6 +114,26 @@ export default function WorkoutPage() {
     } else {
       setWorkout({ ...workout, status: 'done' })
       alert('Workout marked as complete!')
+    }
+  }
+
+  const deleteWorkout = async () => {
+    if (!workout) return
+
+    const confirmed = window.confirm(
+      `Are you sure you want to delete "${workout.name}"? This will also delete all ${exercises.length} exercises. This action cannot be undone.`
+    )
+    if (!confirmed) return
+
+    const { error } = await supabase
+      .from('workouts')
+      .delete()
+      .eq('id', workout.id)
+
+    if (error) {
+      alert('Error deleting workout: ' + error.message)
+    } else {
+      navigate('/calendar')
     }
   }
 
@@ -290,6 +310,13 @@ export default function WorkoutPage() {
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              onClick={deleteWorkout}
+              className="p-2 text-red-600 hover:bg-red-50 active:bg-red-100 rounded-lg transition-colors"
+              title="Delete workout"
+            >
+              <Trash2 size={20} />
+            </button>
             <span
               className={`px-3 py-1 rounded-full text-xs sm:text-sm font-semibold whitespace-nowrap ${
                 workout.status === 'done'
