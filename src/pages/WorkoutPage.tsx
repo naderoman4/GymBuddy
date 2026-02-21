@@ -5,7 +5,6 @@ import { useTranslation } from 'react-i18next'
 import { supabase } from '../lib/supabase'
 import { analyzeWorkout } from '../lib/ai-client'
 import { useProfile } from '../contexts/ProfileContext'
-import { useAuth } from '../contexts/AuthContext'
 import type { Workout, Exercise } from '../lib/database.types'
 import { format, parseISO } from 'date-fns'
 import { fr, enUS } from 'date-fns/locale'
@@ -36,7 +35,6 @@ export default function WorkoutPage() {
   const navigate = useNavigate()
   const { t, i18n } = useTranslation()
   const { isOnboardingComplete } = useProfile()
-  const { session } = useAuth()
   const [workout, setWorkout] = useState<Workout | null>(null)
   const [exercises, setExercises] = useState<Exercise[]>([])
   const [loading, setLoading] = useState(true)
@@ -155,8 +153,9 @@ export default function WorkoutPage() {
     setAnalysisError('')
 
     try {
-      if (!session?.access_token) throw new Error('Not authenticated')
-      const result = await analyzeWorkout({ workout_id: id }, session.access_token)
+      const { data: { session: freshSession } } = await supabase.auth.getSession()
+      if (!freshSession?.access_token) throw new Error('Not authenticated')
+      const result = await analyzeWorkout({ workout_id: id }, freshSession.access_token)
       setAnalysisData({
         summary: result.analysis.summary,
         performance_rating: result.analysis.performance_rating,

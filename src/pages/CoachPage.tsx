@@ -57,7 +57,7 @@ function getDayOffset(dayOfWeek: string): number {
 export default function CoachPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const { user, session } = useAuth()
+  const { user } = useAuth()
   const { hasProfile, isOnboardingComplete } = useProfile()
 
   const [viewState, setViewState] = useState<ViewState>('idle')
@@ -123,12 +123,13 @@ export default function CoachPage() {
     setShowFeedback(false)
 
     try {
-      if (!session?.access_token) throw new Error('Not authenticated. Please log in again.')
+      const { data: { session: freshSession } } = await supabase.auth.getSession()
+      if (!freshSession?.access_token) throw new Error('Not authenticated. Please log in again.')
 
       const result = await generateProgram({
         specific_instructions: instructions || undefined,
         feedback: feedback || undefined,
-      }, session.access_token)
+      }, freshSession.access_token)
 
       if (result.warning) setWarning(result.warning)
       setProposal(result.program as ProgramProposal)
