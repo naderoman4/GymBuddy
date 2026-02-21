@@ -154,7 +154,7 @@ ${jsonSchema}`
         : `${userPrompt}\n\nIMPORTANT: Your previous response was not valid JSON. Return ONLY a valid JSON object, no markdown fences.`
 
       const response = await anthropic.messages.create({
-        model: 'claude-opus-4-6',
+        model: 'claude-sonnet-4-6',
         max_tokens: 1024,
         temperature: 0.3,
         system: systemPrompt,
@@ -196,7 +196,7 @@ ${jsonSchema}`
       function_name: 'analyze-workout',
       input_tokens: inputTokens,
       output_tokens: outputTokens,
-      model: 'claude-opus-4-6',
+      model: 'claude-sonnet-4-6',
       estimated_cost_eur: (inputTokens * 3 + outputTokens * 15) / 1_000_000,
     })
 
