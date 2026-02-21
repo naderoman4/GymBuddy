@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Upload, Clipboard, AlertCircle, CheckCircle, ArrowLeft } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import Papa from 'papaparse'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -23,6 +24,7 @@ interface CSVRow {
 
 export default function ImportWorkoutPage() {
   const { user } = useAuth()
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [isDragging, setIsDragging] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
@@ -56,7 +58,7 @@ export default function ImportWorkoutPage() {
 
   const handleFile = async (file: File) => {
     if (!file.name.endsWith('.csv')) {
-      setMessage({ type: 'error', text: 'Please upload a CSV file' })
+      setMessage({ type: 'error', text: t('importWorkout.pleaseUploadCSV') })
       return
     }
 
@@ -69,7 +71,7 @@ export default function ImportWorkoutPage() {
       complete: async (results) => {
         try {
           await processCSVData(results.data)
-          setMessage({ type: 'success', text: `Successfully imported ${results.data.length} exercises!` })
+          setMessage({ type: 'success', text: t('importWorkout.successImport', { count: results.data.length }) })
           setTimeout(() => navigate('/'), 2000)
         } catch (error) {
           setMessage({ type: 'error', text: (error as Error).message })
@@ -88,7 +90,7 @@ export default function ImportWorkoutPage() {
     try {
       const text = await navigator.clipboard.readText()
       if (!text.trim()) {
-        setMessage({ type: 'error', text: 'Clipboard is empty' })
+        setMessage({ type: 'error', text: t('importWorkout.clipboardEmpty') })
         return
       }
 
@@ -101,7 +103,7 @@ export default function ImportWorkoutPage() {
         complete: async (results) => {
           try {
             await processCSVData(results.data)
-            setMessage({ type: 'success', text: `Successfully imported ${results.data.length} exercises from clipboard!` })
+            setMessage({ type: 'success', text: t('importWorkout.successClipboard', { count: results.data.length }) })
             setTimeout(() => navigate('/'), 2000)
           } catch (error) {
             setMessage({ type: 'error', text: (error as Error).message })
@@ -115,24 +117,24 @@ export default function ImportWorkoutPage() {
         }
       })
     } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to read from clipboard' })
+      setMessage({ type: 'error', text: t('importWorkout.clipboardError') })
     }
   }
 
   const processCSVData = async (data: CSVRow[]) => {
     if (data.length === 0) {
-      throw new Error('CSV file is empty')
+      throw new Error(t('importWorkout.csvEmpty'))
     }
 
     const workoutMap = new Map<string, { workout: WorkoutInsert; exercises: ExerciseInsert[] }>()
 
     for (const row of data) {
       if (!row.workout_date || !row.workout_type) {
-        throw new Error('Each row must have workout_date and workout_type')
+        throw new Error(t('importWorkout.rowRequiresDateType'))
       }
 
       if (!row.exercise_name || !row.expected_sets || !row.expected_reps || !row.rest_in_seconds || !row.rpe) {
-        throw new Error('Each exercise must have exercise_name, expected_sets, expected_reps, rest_in_seconds, and rpe')
+        throw new Error(t('importWorkout.rowRequiresExercise'))
       }
 
       const workoutKey = row.workout_id || `${row.workout_date}-${row.workout_type}`
@@ -204,24 +206,24 @@ export default function ImportWorkoutPage() {
           className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-3 sm:mb-4 active:text-gray-600"
         >
           <ArrowLeft size={20} />
-          <span className="text-sm sm:text-base">Back to workouts</span>
+          <span className="text-sm sm:text-base">{t('importWorkout.backToWorkouts')}</span>
         </button>
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Import workouts</h1>
-        <p className="text-sm sm:text-base text-gray-600 mt-1 sm:mt-2">Upload a CSV file with your workout plan</p>
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{t('importWorkout.title')}</h1>
+        <p className="text-sm sm:text-base text-gray-600 mt-1 sm:mt-2">{t('importWorkout.subtitle')}</p>
       </div>
 
       <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-4 sm:mb-6">
-        <h2 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">CSV Format</h2>
+        <h2 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">{t('importWorkout.csvFormat')}</h2>
         <p className="text-sm sm:text-base text-gray-600 mb-3 sm:mb-4">
-          Your CSV file should include these columns:
+          {t('importWorkout.csvDescription')}
         </p>
         <div className="bg-gray-50 p-3 sm:p-4 rounded border border-gray-200 overflow-x-auto">
           <code className="text-xs sm:text-sm whitespace-nowrap">
-            workout_date, workout_type, exercise_name, expected_sets, expected_reps, rest_in_seconds, rpe
+            {t('importWorkout.csvRequired')}
           </code>
         </div>
         <p className="text-xs sm:text-sm text-gray-500 mt-2">
-          Optional: workout_id, workout_name, workout_status, workout_notes, recommended_weight
+          {t('importWorkout.csvOptional')}
         </p>
       </div>
 
@@ -246,11 +248,11 @@ export default function ImportWorkoutPage() {
         <Upload className="mx-auto mb-3 sm:mb-4 text-gray-400" size={40} />
 
         <h3 className="text-lg sm:text-xl font-semibold mb-2">
-          {isDragging ? 'Drop your CSV file here' : 'Upload CSV File'}
+          {isDragging ? t('importWorkout.dropHere') : t('importWorkout.uploadCSV')}
         </h3>
 
         <p className="text-sm sm:text-base text-gray-600 mb-4">
-          Drag and drop, or use the buttons below
+          {t('importWorkout.dragAndDrop')}
         </p>
 
         <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 justify-center">
@@ -260,7 +262,7 @@ export default function ImportWorkoutPage() {
             className="flex items-center justify-center gap-2 bg-blue-600 text-white px-4 sm:px-6 py-2.5 rounded-lg hover:bg-blue-700 active:bg-blue-800 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-sm sm:text-base"
           >
             <Upload size={18} />
-            {isProcessing ? 'Processing...' : 'Select File'}
+            {isProcessing ? t('importWorkout.processing') : t('importWorkout.selectFile')}
           </button>
 
           <button
@@ -269,7 +271,7 @@ export default function ImportWorkoutPage() {
             className="flex items-center justify-center gap-2 bg-purple-600 text-white px-4 sm:px-6 py-2.5 rounded-lg hover:bg-purple-700 active:bg-purple-800 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-sm sm:text-base"
           >
             <Clipboard size={18} />
-            Paste from Clipboard
+            {t('importWorkout.pasteClipboard')}
           </button>
         </div>
       </div>
@@ -292,14 +294,14 @@ export default function ImportWorkoutPage() {
       )}
 
       <div className="mt-6 sm:mt-8 bg-blue-50 border border-blue-200 rounded-lg p-4 sm:p-6">
-        <h3 className="font-semibold text-blue-900 mb-2 text-sm sm:text-base">Import Options</h3>
+        <h3 className="font-semibold text-blue-900 mb-2 text-sm sm:text-base">{t('importWorkout.importOptions')}</h3>
         <ul className="text-xs sm:text-sm text-blue-800 space-y-1">
-          <li>• <strong>Upload File:</strong> Select a CSV from your device</li>
-          <li>• <strong>Paste:</strong> Copy CSV data from Google Sheets or Excel</li>
-          <li>• <strong>Drag & Drop:</strong> Drag a CSV file into the upload area</li>
+          <li>&bull; <strong>{t('importWorkout.optionUpload')}</strong> {t('importWorkout.optionUploadDesc')}</li>
+          <li>&bull; <strong>{t('importWorkout.optionPaste')}</strong> {t('importWorkout.optionPasteDesc')}</li>
+          <li>&bull; <strong>{t('importWorkout.optionDrag')}</strong> {t('importWorkout.optionDragDesc')}</li>
         </ul>
         <p className="text-xs sm:text-sm text-blue-800 mt-3">
-          Exercises with the same workout_date and workout_type will be grouped into one workout.
+          {t('importWorkout.groupingNote')}
         </p>
       </div>
     </div>

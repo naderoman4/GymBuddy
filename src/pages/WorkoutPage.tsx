@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Save, CheckCircle, Clock, Target, Timer, X, Dumbbell, Trash2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '../lib/supabase'
 import type { Workout, Exercise } from '../lib/database.types'
 import { format, parseISO } from 'date-fns'
+import { fr, enUS } from 'date-fns/locale'
 
 interface TimerState {
   isActive: boolean
@@ -17,10 +19,13 @@ interface TimerState {
 export default function WorkoutPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { t, i18n } = useTranslation()
   const [workout, setWorkout] = useState<Workout | null>(null)
   const [exercises, setExercises] = useState<Exercise[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+
+  const dateFnsLocale = i18n.language === 'fr' ? fr : enUS
 
   // Timer state
   const [timer, setTimer] = useState<TimerState>({
@@ -51,8 +56,8 @@ export default function WorkoutPage() {
       .single()
 
     if (workoutError || !workoutData) {
-      alert('Workout not found')
-      navigate('/calendar')
+      alert(t('workout.notFound'))
+      navigate('/')
       return
     }
 
@@ -91,7 +96,7 @@ export default function WorkoutPage() {
       .eq('id', exercise.id)
 
     if (error) {
-      alert('Error saving exercise: ' + error.message)
+      alert(t('workout.saveError', { message: error.message }))
     }
 
     setSaving(false)
@@ -100,7 +105,7 @@ export default function WorkoutPage() {
   const completeWorkout = async () => {
     if (!workout) return
 
-    const confirmed = window.confirm('Mark this workout as complete?')
+    const confirmed = window.confirm(t('workout.markComplete'))
     if (!confirmed) return
 
     const { error } = await supabase
@@ -110,10 +115,10 @@ export default function WorkoutPage() {
       .eq('id', workout.id)
 
     if (error) {
-      alert('Error completing workout: ' + error.message)
+      alert(t('workout.completeError', { message: error.message }))
     } else {
       setWorkout({ ...workout, status: 'done' })
-      alert('Workout marked as complete!')
+      alert(t('workout.completedSuccess'))
     }
   }
 
@@ -121,7 +126,7 @@ export default function WorkoutPage() {
     if (!workout) return
 
     const confirmed = window.confirm(
-      `Are you sure you want to delete "${workout.name}"? This will also delete all ${exercises.length} exercises. This action cannot be undone.`
+      t('workout.deleteConfirm', { name: workout.name, count: exercises.length })
     )
     if (!confirmed) return
 
@@ -131,28 +136,25 @@ export default function WorkoutPage() {
       .eq('id', workout.id)
 
     if (error) {
-      alert('Error deleting workout: ' + error.message)
+      alert(t('workout.deleteError', { message: error.message }))
     } else {
-      navigate('/calendar')
+      navigate('/')
     }
   }
 
   // Timer functions - alarm sound
   const playAlarmSound = useCallback(() => {
     try {
-      // Create audio context if it doesn't exist
       if (!audioContextRef.current) {
         audioContextRef.current = new (window.AudioContext || (window as typeof window & { webkitAudioContext: typeof AudioContext }).webkitAudioContext)()
       }
 
       const ctx = audioContextRef.current
 
-      // Resume context if suspended (required for mobile)
       if (ctx.state === 'suspended') {
         ctx.resume()
       }
 
-      // Create a pleasant alarm sound (two-tone beep)
       const playBeep = () => {
         const oscillator1 = ctx.createOscillator()
         const oscillator2 = ctx.createOscillator()
@@ -162,9 +164,8 @@ export default function WorkoutPage() {
         oscillator2.connect(gainNode)
         gainNode.connect(ctx.destination)
 
-        // Two-tone alarm (like a gym timer)
-        oscillator1.frequency.value = 880 // A5
-        oscillator2.frequency.value = 1100 // C#6
+        oscillator1.frequency.value = 880
+        oscillator2.frequency.value = 1100
         oscillator1.type = 'sine'
         oscillator2.type = 'sine'
 
@@ -177,10 +178,7 @@ export default function WorkoutPage() {
         oscillator2.stop(ctx.currentTime + 0.5)
       }
 
-      // Play initial beep
       playBeep()
-
-      // Repeat every 800ms
       alarmIntervalRef.current = setInterval(playBeep, 800)
     } catch (e) {
       console.log('Audio not supported')
@@ -195,7 +193,6 @@ export default function WorkoutPage() {
   }, [])
 
   const startRestTimer = useCallback((exercise: Exercise) => {
-    // Clear any existing timer
     if (timerIntervalRef.current) {
       clearInterval(timerIntervalRef.current)
     }
@@ -213,11 +210,9 @@ export default function WorkoutPage() {
     timerIntervalRef.current = setInterval(() => {
       setTimer(prev => {
         if (prev.remainingSeconds <= 1) {
-          // Timer complete
           if (timerIntervalRef.current) {
             clearInterval(timerIntervalRef.current)
           }
-          // Start alarm sound
           playAlarmSound()
           return { ...prev, remainingSeconds: 0, isComplete: true }
         }
@@ -242,7 +237,6 @@ export default function WorkoutPage() {
     })
   }, [stopAlarm])
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (timerIntervalRef.current) {
@@ -269,7 +263,7 @@ export default function WorkoutPage() {
   if (loading) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-500">Loading workout...</p>
+        <p className="text-gray-500">{t('workout.loadingWorkout')}</p>
       </div>
     )
   }
@@ -277,7 +271,7 @@ export default function WorkoutPage() {
   if (!workout) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-500">Workout not found</p>
+        <p className="text-gray-500">{t('workout.notFound')}</p>
       </div>
     )
   }
@@ -288,6 +282,14 @@ export default function WorkoutPage() {
     return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`
   }
 
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'done': return t('common.done')
+      case 'planned': return t('common.planned')
+      default: return status
+    }
+  }
+
   return (
     <div className="max-w-4xl mx-auto">
       <button
@@ -295,7 +297,7 @@ export default function WorkoutPage() {
         className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 sm:mb-6 active:text-gray-600"
       >
         <ArrowLeft size={20} />
-        <span className="text-sm sm:text-base">Back to Workouts</span>
+        <span className="text-sm sm:text-base">{t('workout.backToWorkouts')}</span>
       </button>
 
       <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-4 sm:mb-6">
@@ -305,7 +307,7 @@ export default function WorkoutPage() {
               {workout.name}
             </h1>
             <p className="text-sm sm:text-base text-gray-600">
-              {format(parseISO(workout.date), 'EEE, MMM d, yyyy')}
+              {format(parseISO(workout.date), 'EEE, MMM d, yyyy', { locale: dateFnsLocale })}
             </p>
           </div>
 
@@ -313,7 +315,7 @@ export default function WorkoutPage() {
             <button
               onClick={deleteWorkout}
               className="p-2 text-red-600 hover:bg-red-50 active:bg-red-100 rounded-lg transition-colors"
-              title="Delete workout"
+              title={t('common.delete')}
             >
               <Trash2 size={20} />
             </button>
@@ -324,7 +326,7 @@ export default function WorkoutPage() {
                   : 'bg-blue-100 text-blue-800'
               }`}
             >
-              {workout.status}
+              {getStatusLabel(workout.status)}
             </span>
           </div>
         </div>
@@ -336,7 +338,7 @@ export default function WorkoutPage() {
           </div>
           <div className="flex items-center gap-1">
             <CheckCircle size={14} className="sm:w-4 sm:h-4" />
-            <span>{exercises.length} exercises</span>
+            <span>{exercises.length} {t('common.exercises')}</span>
           </div>
         </div>
 
@@ -357,7 +359,7 @@ export default function WorkoutPage() {
               <div className="flex flex-wrap gap-2 sm:gap-3 text-xs sm:text-sm text-gray-600">
                 <div className="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded">
                   <Target size={12} className="sm:w-3.5 sm:h-3.5" />
-                  <span>{exercise.expected_sets}×{exercise.expected_reps}</span>
+                  <span>{exercise.expected_sets}&times;{exercise.expected_reps}</span>
                 </div>
                 {exercise.recommended_weight && (
                   <div className="bg-gray-100 px-2 py-1 rounded">
@@ -374,11 +376,11 @@ export default function WorkoutPage() {
               </div>
             </div>
 
-            {/* Input grid - 3 columns on mobile too, but smaller */}
+            {/* Input grid */}
             <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-3 sm:mb-4">
               <div>
                 <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
-                  Sets
+                  {t('common.sets')}
                 </label>
                 <input
                   type="number"
@@ -393,7 +395,7 @@ export default function WorkoutPage() {
 
               <div>
                 <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
-                  Reps
+                  {t('common.reps')}
                 </label>
                 <input
                   type="number"
@@ -408,7 +410,7 @@ export default function WorkoutPage() {
 
               <div>
                 <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
-                  Weight
+                  {t('common.weight')}
                 </label>
                 <input
                   type="text"
@@ -423,14 +425,14 @@ export default function WorkoutPage() {
 
             <div className="mb-3 sm:mb-4">
               <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
-                Notes
+                {t('common.notes')}
               </label>
               <textarea
                 value={exercise.notes || ''}
                 onChange={(e) => updateExercise(exercise.id, 'notes', e.target.value || null)}
                 className="w-full px-2 sm:px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
                 rows={2}
-                placeholder="Add notes..."
+                placeholder={t('workout.addNotes')}
               />
             </div>
 
@@ -441,14 +443,14 @@ export default function WorkoutPage() {
                 className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 active:bg-blue-800 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-sm sm:text-base font-medium"
               >
                 <Save size={16} />
-                Save
+                {t('common.save')}
               </button>
               <button
                 onClick={() => startRestTimer(exercise)}
                 className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-orange-500 text-white px-4 py-2.5 rounded-lg hover:bg-orange-600 active:bg-orange-700 transition-colors text-sm sm:text-base font-medium"
               >
                 <Timer size={16} />
-                Rest
+                {t('common.rest')}
               </button>
             </div>
           </div>
@@ -462,7 +464,7 @@ export default function WorkoutPage() {
             className="w-full flex items-center justify-center gap-2 bg-green-600 text-white px-6 py-3 sm:py-4 rounded-lg hover:bg-green-700 active:bg-green-800 transition-colors text-base sm:text-lg font-semibold"
           >
             <CheckCircle size={22} />
-            Complete Workout
+            {t('workout.completeWorkout')}
           </button>
         </div>
       )}
@@ -470,7 +472,6 @@ export default function WorkoutPage() {
       {/* Rest Timer Overlay */}
       {timer.isActive && (
         <div className="fixed inset-0 bg-black z-50 flex flex-col items-center justify-center p-6">
-          {/* Close button */}
           <button
             onClick={stopTimer}
             className="absolute top-4 right-4 sm:top-6 sm:right-6 text-white/70 hover:text-white p-2"
@@ -478,18 +479,15 @@ export default function WorkoutPage() {
             <X size={28} />
           </button>
 
-          {/* Exercise name */}
           <p className="text-white/70 text-sm sm:text-base mb-2 text-center">
-            Rest after
+            {t('workout.restAfter')}
           </p>
           <h2 className="text-white text-xl sm:text-2xl font-semibold mb-8 sm:mb-12 text-center px-4">
             {timer.exerciseName}
           </h2>
 
-          {/* Circular progress */}
           <div className="relative w-56 h-56 sm:w-72 sm:h-72 mb-8 sm:mb-12">
             <svg className="w-full h-full" viewBox="0 0 100 100">
-              {/* Background circle */}
               <circle
                 cx="50"
                 cy="50"
@@ -498,7 +496,6 @@ export default function WorkoutPage() {
                 strokeWidth="6"
                 fill="none"
               />
-              {/* Progress circle - starts from top (12 o'clock position) */}
               <circle
                 cx="50"
                 cy="50"
@@ -514,7 +511,6 @@ export default function WorkoutPage() {
               />
             </svg>
 
-            {/* Timer display in center */}
             <div className="absolute inset-0 flex flex-col items-center justify-center">
               {timer.isComplete ? (
                 <div className="text-center">
@@ -522,7 +518,7 @@ export default function WorkoutPage() {
                     0:00
                   </p>
                   <p className="text-green-400 text-lg sm:text-xl font-medium">
-                    Time's up!
+                    {t('workout.timesUp')}
                   </p>
                 </div>
               ) : (
@@ -533,25 +529,23 @@ export default function WorkoutPage() {
             </div>
           </div>
 
-          {/* Action button */}
           {timer.isComplete ? (
             <button
               onClick={stopTimer}
               className="flex items-center justify-center gap-3 bg-green-500 text-white px-10 sm:px-14 py-4 sm:py-5 rounded-full hover:bg-green-600 active:bg-green-700 transition-all text-lg sm:text-xl font-bold shadow-lg shadow-green-500/30 animate-pulse"
             >
               <Dumbbell size={24} />
-              Lift again!
+              {t('workout.liftAgain')}
             </button>
           ) : (
             <button
               onClick={stopTimer}
               className="text-white/60 hover:text-white text-sm sm:text-base underline"
             >
-              Cancel timer
+              {t('workout.cancelTimer')}
             </button>
           )}
 
-          {/* Progress bar at bottom */}
           <div className="absolute bottom-0 left-0 right-0 h-1 sm:h-1.5 bg-white/10">
             <div
               className={`h-full transition-all duration-1000 ease-linear ${

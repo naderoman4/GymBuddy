@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, parseISO, addWeeks, subWeeks } from 'date-fns'
+import { fr, enUS } from 'date-fns/locale'
 import { ChevronLeft, ChevronRight, Download, Dumbbell, X, Plus, FileUp, Check, Trash2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import type { Workout } from '../lib/database.types'
@@ -9,6 +11,7 @@ import Papa from 'papaparse'
 
 export default function CalendarPage() {
   const { user } = useAuth()
+  const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const [currentDate, setCurrentDate] = useState(new Date())
   const [workouts, setWorkouts] = useState<Workout[]>([])
@@ -19,6 +22,8 @@ export default function CalendarPage() {
     const dismissed = localStorage.getItem('calendarTipsDismissed')
     return dismissed !== 'true'
   })
+
+  const dateFnsLocale = i18n.language === 'fr' ? fr : enUS
 
   // Get week boundaries
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 }) // Monday
@@ -56,6 +61,7 @@ export default function CalendarPage() {
       .select('*')
       .gte('date', format(weekStart, 'yyyy-MM-dd'))
       .lte('date', format(weekEnd, 'yyyy-MM-dd'))
+      .neq('status', 'archived')
       .order('date', { ascending: true })
 
     if (!error && data) {
@@ -96,7 +102,7 @@ export default function CalendarPage() {
       .in('workout_id', workoutIds)
 
     if (error || !exercises) {
-      alert('Error fetching exercises for export')
+      alert(t('calendar.exportError'))
       return
     }
 
@@ -115,7 +121,7 @@ export default function CalendarPage() {
 
     const workoutIds = Array.from(selectedWorkouts)
     const confirmed = window.confirm(
-      `Are you sure you want to delete ${workoutIds.length} workout${workoutIds.length > 1 ? 's' : ''}? This will also delete all associated exercises. This action cannot be undone.`
+      t('calendar.deleteConfirm', { count: workoutIds.length })
     )
     if (!confirmed) return
 
@@ -125,7 +131,7 @@ export default function CalendarPage() {
       .in('id', workoutIds)
 
     if (error) {
-      alert('Error deleting workouts: ' + error.message)
+      alert(t('calendar.deleteError', { message: error.message }))
     } else {
       setSelectedWorkouts(new Set())
       fetchWorkouts()
@@ -160,8 +166,13 @@ export default function CalendarPage() {
     }
   }
 
-  const capitalizeStatus = (status: string) => {
-    return status.charAt(0).toUpperCase() + status.slice(1)
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'done': return t('common.done')
+      case 'planned': return t('common.planned')
+      case 'archived': return t('common.archived')
+      default: return status.charAt(0).toUpperCase() + status.slice(1)
+    }
   }
 
   const dismissTips = () => {
@@ -175,7 +186,7 @@ export default function CalendarPage() {
     <div className="max-w-4xl mx-auto">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">My workouts</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{t('calendar.title')}</h1>
 
         <div className="flex flex-wrap gap-2 sm:gap-3">
           {selectedWorkouts.size > 0 && (
@@ -185,14 +196,14 @@ export default function CalendarPage() {
                 className="flex items-center gap-2 bg-red-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-red-700 active:bg-red-800 transition-colors text-sm sm:text-base"
               >
                 <Trash2 size={18} />
-                <span className="hidden sm:inline">Delete</span> {selectedWorkouts.size}
+                <span className="hidden sm:inline">{t('common.delete')}</span> {selectedWorkouts.size}
               </button>
               <button
                 onClick={exportSelectedWorkouts}
                 className="flex items-center gap-2 bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-green-700 active:bg-green-800 transition-colors text-sm sm:text-base"
               >
                 <Download size={18} />
-                <span className="hidden sm:inline">Export</span> {selectedWorkouts.size}
+                <span className="hidden sm:inline">{t('common.export')}</span> {selectedWorkouts.size}
               </button>
             </>
           )}
@@ -201,14 +212,14 @@ export default function CalendarPage() {
             className="flex items-center gap-2 bg-white text-gray-700 px-3 sm:px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 active:bg-gray-100 transition-colors text-sm sm:text-base"
           >
             <FileUp size={18} />
-            <span className="hidden sm:inline">Import</span>
+            <span className="hidden sm:inline">{t('common.import')}</span>
           </Link>
           <Link
             to="/create"
             className="flex items-center gap-2 bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors font-semibold text-sm sm:text-base"
           >
             <Plus size={18} />
-            <span className="hidden sm:inline">Create</span>
+            <span className="hidden sm:inline">{t('common.create')}</span>
           </Link>
         </div>
       </div>
@@ -221,11 +232,11 @@ export default function CalendarPage() {
           >
             <X size={20} />
           </button>
-          <h3 className="font-semibold text-blue-900 mb-2">Tips:</h3>
+          <h3 className="font-semibold text-blue-900 mb-2">{t('calendar.tipsTitle')}</h3>
           <ul className="text-sm text-blue-800 space-y-1">
-            <li>• Tap on a workout to view details and track progress</li>
-            <li>• Tap the checkbox to select workouts for export or deletion</li>
-            <li>• Green = completed, Orange = planned</li>
+            <li>&bull; {t('calendar.tip1')}</li>
+            <li>&bull; {t('calendar.tip2')}</li>
+            <li>&bull; {t('calendar.tip3')}</li>
           </ul>
         </div>
       )}
@@ -242,13 +253,13 @@ export default function CalendarPage() {
 
           <div className="text-center">
             <h2 className="text-lg sm:text-xl font-semibold text-gray-900">
-              {format(weekStart, 'MMM d')} - {format(weekEnd, 'MMM d, yyyy')}
+              {format(weekStart, 'MMM d', { locale: dateFnsLocale })} - {format(weekEnd, 'MMM d, yyyy', { locale: dateFnsLocale })}
             </h2>
             <button
               onClick={goToToday}
               className="text-sm text-blue-600 hover:text-blue-700 mt-1"
             >
-              Today
+              {t('common.today')}
             </button>
           </div>
 
@@ -262,7 +273,7 @@ export default function CalendarPage() {
 
         {loading ? (
           <div className="text-center py-12">
-            <p className="text-gray-500">Loading workouts...</p>
+            <p className="text-gray-500">{t('calendar.loadingWorkouts')}</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -280,15 +291,15 @@ export default function CalendarPage() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className={`font-semibold ${today ? 'text-blue-700' : 'text-gray-700'}`}>
-                          {format(day, 'EEEE')}
+                          {format(day, 'EEEE', { locale: dateFnsLocale })}
                         </span>
                         <span className={`text-sm ${today ? 'text-blue-600' : 'text-gray-500'}`}>
-                          {format(day, 'MMM d')}
+                          {format(day, 'MMM d', { locale: dateFnsLocale })}
                         </span>
                       </div>
                       {today && (
                         <span className="text-xs bg-blue-600 text-white px-2 py-0.5 rounded-full">
-                          Today
+                          {t('common.today')}
                         </span>
                       )}
                     </div>
@@ -297,7 +308,7 @@ export default function CalendarPage() {
                   {/* Workouts for this day */}
                   <div className="p-3">
                     {dayWorkouts.length === 0 ? (
-                      <p className="text-sm text-gray-400 italic py-2">No workouts</p>
+                      <p className="text-sm text-gray-400 italic py-2">{t('calendar.noWorkouts')}</p>
                     ) : (
                       <div className="space-y-2">
                         {dayWorkouts.map(workout => (
@@ -339,7 +350,7 @@ export default function CalendarPage() {
 
                             {/* Status badge */}
                             <span className={`flex-shrink-0 text-xs px-2 py-1 rounded-full ${getStatusBadgeColor(workout.status)}`}>
-                              {capitalizeStatus(workout.status)}
+                              {getStatusLabel(workout.status)}
                             </span>
                           </div>
                         ))}

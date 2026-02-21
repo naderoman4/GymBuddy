@@ -65,3 +65,8 @@ input[type="checkbox"]:focus {
   ring: 2px;
   ring-color: #3b82f6;
 }
+
+/* Safe area for bottom tab bar on iOS */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}

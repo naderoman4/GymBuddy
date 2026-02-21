@@ -1,10 +1,13 @@
-import { Navigate } from 'react-router-dom'
+import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { useProfile } from '../contexts/ProfileContext'
 
 export default function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth()
+  const { user, loading: authLoading } = useAuth()
+  const { hasProfile, loading: profileLoading } = useProfile()
+  const location = useLocation()
 
-  if (loading) {
+  if (authLoading || profileLoading) {
     return (
       <div className="min-h-[80vh] flex items-center justify-center">
         <div className="text-center">
@@ -17,6 +20,13 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
 
   if (!user) {
     return <Navigate to="/login" replace />
+  }
+
+  // Redirect to profile onboarding if no profile exists
+  // (except if already on onboarding pages)
+  const onboardingPaths = ['/onboarding', '/onboarding/profile']
+  if (!hasProfile && !onboardingPaths.includes(location.pathname)) {
+    return <Navigate to="/onboarding/profile" replace />
   }
 
   return <>{children}</>
