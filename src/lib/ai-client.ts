@@ -17,6 +17,16 @@ export async function generateProgram(input: GenerateProgramInput): Promise<Gene
   })
 
   if (error) {
+    // Try to extract the actual error body from the Edge Function response
+    const context = (error as any).context
+    if (context) {
+      try {
+        const body = await context.json()
+        throw new Error(body.error || error.message)
+      } catch {
+        // ignore parse error, fall through
+      }
+    }
     throw new Error(error.message || 'Failed to call generate-program')
   }
 
@@ -49,6 +59,15 @@ export async function analyzeWorkout(input: AnalyzeWorkoutInput): Promise<Analyz
   })
 
   if (error) {
+    const context = (error as any).context
+    if (context) {
+      try {
+        const body = await context.json()
+        throw new Error(body.error || error.message)
+      } catch {
+        // ignore parse error, fall through
+      }
+    }
     throw new Error(error.message || 'Failed to call analyze-workout')
   }
 
