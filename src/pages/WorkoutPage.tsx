@@ -153,7 +153,7 @@ export default function WorkoutPage() {
     setAnalysisError('')
 
     try {
-      const { data: { session: freshSession } } = await supabase.auth.getSession()
+      const { data: { session: freshSession } } = await supabase.auth.refreshSession()
       if (!freshSession?.access_token) throw new Error('Not authenticated')
       const result = await analyzeWorkout({ workout_id: id }, freshSession.access_token)
       setAnalysisData({

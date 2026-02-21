@@ -123,7 +123,7 @@ export default function CoachPage() {
     setShowFeedback(false)
 
     try {
-      const { data: { session: freshSession } } = await supabase.auth.getSession()
+      const { data: { session: freshSession } } = await supabase.auth.refreshSession()
       if (!freshSession?.access_token) throw new Error('Not authenticated. Please log in again.')
 
       const result = await generateProgram({

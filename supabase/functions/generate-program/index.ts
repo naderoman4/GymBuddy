@@ -188,7 +188,7 @@ ${jsonSchema}`
       ]
 
       const response = await anthropic.messages.create({
-        model: 'claude-sonnet-4-6',
+        model: 'claude-opus-4-6',
         max_tokens: 4096,
         temperature: 0.7,
         system: systemPrompt,
@@ -239,7 +239,7 @@ ${jsonSchema}`
       function_name: 'generate-program',
       input_tokens: inputTokens,
       output_tokens: outputTokens,
-      model: 'claude-sonnet-4-6',
+      model: 'claude-opus-4-6',
       estimated_cost_eur: (inputTokens * 3 + outputTokens * 15) / 1_000_000,
     })
 
