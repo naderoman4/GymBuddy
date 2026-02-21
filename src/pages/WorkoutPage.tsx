@@ -1,11 +1,15 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Save, CheckCircle, Clock, Target, Timer, X, Dumbbell, Trash2 } from 'lucide-react'
+import { ArrowLeft, Save, CheckCircle, Clock, Target, Timer, X, Dumbbell, Trash2, Lightbulb, TrendingUp, TrendingDown, Minus, AlertCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../lib/supabase'
+import { analyzeWorkout } from '../lib/ai-client'
+import { useProfile } from '../contexts/ProfileContext'
 import type { Workout, Exercise } from '../lib/database.types'
 import { format, parseISO } from 'date-fns'
 import { fr, enUS } from 'date-fns/locale'
+import LottiePlayer from '../components/shared/LottiePlayer'
+import celebrationData from '../../public/animations/celebration.json'
 
 interface TimerState {
   isActive: boolean
@@ -16,14 +20,30 @@ interface TimerState {
   isComplete: boolean
 }
 
+interface AnalysisData {
+  summary: string
+  performance_rating: 'exceeded' | 'on_track' | 'below_target' | 'needs_attention'
+  highlights: Array<{ exercise_name: string; observation: string; trend: string }>
+  watch_items: Array<{ exercise_name: string; observation: string; trend: string }>
+  coaching_tip: string | null
+}
+
+type CompletionState = 'none' | 'celebrating' | 'analyzing' | 'analysis_done' | 'analysis_error'
+
 export default function WorkoutPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { t, i18n } = useTranslation()
+  const { isOnboardingComplete } = useProfile()
   const [workout, setWorkout] = useState<Workout | null>(null)
   const [exercises, setExercises] = useState<Exercise[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+
+  // Post-completion states
+  const [completionState, setCompletionState] = useState<CompletionState>('none')
+  const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null)
+  const [analysisError, setAnalysisError] = useState('')
 
   const dateFnsLocale = i18n.language === 'fr' ? fr : enUS
 
@@ -45,6 +65,31 @@ export default function WorkoutPage() {
       fetchWorkout()
     }
   }, [id])
+
+  // Check if analysis already exists for this workout
+  useEffect(() => {
+    if (workout?.status === 'done' && id) {
+      supabase
+        .from('workout_analyses')
+        .select('*')
+        .eq('workout_id', id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .then(({ data }) => {
+          if (data && data.length > 0) {
+            const a = data[0] as any
+            setAnalysisData({
+              summary: a.summary,
+              performance_rating: a.performance_rating,
+              highlights: a.highlights || [],
+              watch_items: a.watch_items || [],
+              coaching_tip: a.coaching_tip,
+            })
+            setCompletionState('analysis_done')
+          }
+        })
+    }
+  }, [workout?.status, id])
 
   const fetchWorkout = async () => {
     setLoading(true)
@@ -102,6 +147,27 @@ export default function WorkoutPage() {
     setSaving(false)
   }
 
+  const triggerAnalysis = async () => {
+    if (!id) return
+    setCompletionState('analyzing')
+    setAnalysisError('')
+
+    try {
+      const result = await analyzeWorkout({ workout_id: id })
+      setAnalysisData({
+        summary: result.analysis.summary,
+        performance_rating: result.analysis.performance_rating,
+        highlights: result.analysis.highlights || [],
+        watch_items: result.analysis.watch_items || [],
+        coaching_tip: result.analysis.coaching_tip,
+      })
+      setCompletionState('analysis_done')
+    } catch (err) {
+      setAnalysisError((err as Error).message)
+      setCompletionState('analysis_error')
+    }
+  }
+
   const completeWorkout = async () => {
     if (!workout) return
 
@@ -116,10 +182,19 @@ export default function WorkoutPage() {
 
     if (error) {
       alert(t('workout.completeError', { message: error.message }))
-    } else {
-      setWorkout({ ...workout, status: 'done' })
-      alert(t('workout.completedSuccess'))
+      return
     }
+
+    setWorkout({ ...workout, status: 'done' })
+
+    // If profile is complete, trigger celebration → analysis flow
+    if (isOnboardingComplete) {
+      setCompletionState('celebrating')
+    }
+  }
+
+  const handleCelebrationComplete = () => {
+    triggerAnalysis()
   }
 
   const deleteWorkout = async () => {
@@ -142,46 +217,37 @@ export default function WorkoutPage() {
     }
   }
 
-  // Timer functions - alarm sound
+  // Timer functions
   const playAlarmSound = useCallback(() => {
     try {
       if (!audioContextRef.current) {
         audioContextRef.current = new (window.AudioContext || (window as typeof window & { webkitAudioContext: typeof AudioContext }).webkitAudioContext)()
       }
-
       const ctx = audioContextRef.current
-
-      if (ctx.state === 'suspended') {
-        ctx.resume()
-      }
+      if (ctx.state === 'suspended') ctx.resume()
 
       const playBeep = () => {
         const oscillator1 = ctx.createOscillator()
         const oscillator2 = ctx.createOscillator()
         const gainNode = ctx.createGain()
-
         oscillator1.connect(gainNode)
         oscillator2.connect(gainNode)
         gainNode.connect(ctx.destination)
-
         oscillator1.frequency.value = 880
         oscillator2.frequency.value = 1100
         oscillator1.type = 'sine'
         oscillator2.type = 'sine'
-
         gainNode.gain.setValueAtTime(0.3, ctx.currentTime)
         gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5)
-
         oscillator1.start(ctx.currentTime)
         oscillator2.start(ctx.currentTime)
         oscillator1.stop(ctx.currentTime + 0.5)
         oscillator2.stop(ctx.currentTime + 0.5)
       }
-
       playBeep()
       alarmIntervalRef.current = setInterval(playBeep, 800)
-    } catch (e) {
-      console.log('Audio not supported')
+    } catch {
+      // Audio not supported
     }
   }, [])
 
@@ -193,11 +259,8 @@ export default function WorkoutPage() {
   }, [])
 
   const startRestTimer = useCallback((exercise: Exercise) => {
-    if (timerIntervalRef.current) {
-      clearInterval(timerIntervalRef.current)
-    }
+    if (timerIntervalRef.current) clearInterval(timerIntervalRef.current)
     stopAlarm()
-
     setTimer({
       isActive: true,
       exerciseId: exercise.id,
@@ -206,13 +269,10 @@ export default function WorkoutPage() {
       remainingSeconds: exercise.rest_in_seconds,
       isComplete: false
     })
-
     timerIntervalRef.current = setInterval(() => {
       setTimer(prev => {
         if (prev.remainingSeconds <= 1) {
-          if (timerIntervalRef.current) {
-            clearInterval(timerIntervalRef.current)
-          }
+          if (timerIntervalRef.current) clearInterval(timerIntervalRef.current)
           playAlarmSound()
           return { ...prev, remainingSeconds: 0, isComplete: true }
         }
@@ -227,25 +287,14 @@ export default function WorkoutPage() {
       timerIntervalRef.current = null
     }
     stopAlarm()
-    setTimer({
-      isActive: false,
-      exerciseId: null,
-      exerciseName: '',
-      totalSeconds: 0,
-      remainingSeconds: 0,
-      isComplete: false
-    })
+    setTimer({ isActive: false, exerciseId: null, exerciseName: '', totalSeconds: 0, remainingSeconds: 0, isComplete: false })
   }, [stopAlarm])
 
   useEffect(() => {
     return () => {
-      if (timerIntervalRef.current) {
-        clearInterval(timerIntervalRef.current)
-      }
+      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current)
       stopAlarm()
-      if (audioContextRef.current) {
-        audioContextRef.current.close()
-      }
+      if (audioContextRef.current) audioContextRef.current.close()
     }
   }, [stopAlarm])
 
@@ -288,6 +337,43 @@ export default function WorkoutPage() {
       case 'planned': return t('common.planned')
       default: return status
     }
+  }
+
+  const getRatingColor = (rating: string) => {
+    switch (rating) {
+      case 'exceeded': return 'bg-green-100 text-green-800'
+      case 'on_track': return 'bg-blue-100 text-blue-800'
+      case 'below_target': return 'bg-amber-100 text-amber-800'
+      case 'needs_attention': return 'bg-red-100 text-red-800'
+      default: return 'bg-gray-100 text-gray-800'
+    }
+  }
+
+  const getTrendIcon = (trend: string) => {
+    switch (trend) {
+      case 'improving': return <TrendingUp size={14} className="text-green-600" />
+      case 'declining': return <TrendingDown size={14} className="text-amber-600" />
+      default: return <Minus size={14} className="text-gray-400" />
+    }
+  }
+
+  // Celebration overlay
+  if (completionState === 'celebrating') {
+    return (
+      <div className="fixed inset-0 bg-white z-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-48 h-48 mx-auto">
+            <LottiePlayer
+              animationData={celebrationData}
+              loop={false}
+              autoplay={true}
+              onComplete={handleCelebrationComplete}
+            />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mt-4">{t('workout.completedSuccess')}</h2>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -348,6 +434,101 @@ export default function WorkoutPage() {
           </div>
         )}
       </div>
+
+      {/* Analysis Card — shown after workout is done */}
+      {completionState === 'analyzing' && (
+        <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-4 sm:mb-6">
+          <div className="animate-pulse space-y-3">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                <Lightbulb size={16} className="text-blue-400" />
+              </div>
+              <p className="text-sm font-medium text-gray-700">{t('analysis.analyzing')}</p>
+            </div>
+            <div className="h-4 bg-gray-200 rounded w-3/4" />
+            <div className="h-4 bg-gray-200 rounded w-5/6" />
+            <div className="h-4 bg-gray-200 rounded w-2/3" />
+          </div>
+        </div>
+      )}
+
+      {completionState === 'analysis_error' && (
+        <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-4 sm:mb-6">
+          <div className="flex items-start gap-3">
+            <AlertCircle size={20} className="text-red-500 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-gray-900">{t('analysis.errorAnalysis')}</p>
+              {analysisError && <p className="text-xs text-red-600 mt-1">{analysisError}</p>}
+              <button
+                onClick={triggerAnalysis}
+                className="mt-2 text-sm text-blue-600 hover:text-blue-700 font-medium"
+              >
+                {t('analysis.retry')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {completionState === 'analysis_done' && analysisData && (
+        <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-4 sm:mb-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-gray-900 text-sm">{t('analysis.title')}</h3>
+            <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${getRatingColor(analysisData.performance_rating)}`}>
+              {t(`analysis.${analysisData.performance_rating}`)}
+            </span>
+          </div>
+
+          <p className="text-sm text-gray-700">{analysisData.summary}</p>
+
+          {/* Highlights */}
+          {analysisData.highlights.length > 0 && (
+            <div>
+              <h4 className="text-xs font-semibold text-green-700 mb-1.5">{t('analysis.highlights')}</h4>
+              <div className="space-y-1.5">
+                {analysisData.highlights.map((h, i) => (
+                  <div key={i} className="flex items-start gap-2 bg-green-50 rounded-lg px-3 py-2">
+                    {getTrendIcon(h.trend)}
+                    <div>
+                      <span className="text-xs font-medium text-green-900">{h.exercise_name}</span>
+                      <p className="text-xs text-green-800">{h.observation}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Watch Items */}
+          {analysisData.watch_items.length > 0 && (
+            <div>
+              <h4 className="text-xs font-semibold text-amber-700 mb-1.5">{t('analysis.watchItems')}</h4>
+              <div className="space-y-1.5">
+                {analysisData.watch_items.map((w, i) => (
+                  <div key={i} className="flex items-start gap-2 bg-amber-50 rounded-lg px-3 py-2">
+                    {getTrendIcon(w.trend)}
+                    <div>
+                      <span className="text-xs font-medium text-amber-900">{w.exercise_name}</span>
+                      <p className="text-xs text-amber-800">{w.observation}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Coaching Tip */}
+          {analysisData.coaching_tip && (
+            <div className="flex items-start gap-2 bg-blue-50 rounded-lg px-3 py-2.5">
+              <Lightbulb size={16} className="text-blue-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <h4 className="text-xs font-semibold text-blue-800 mb-0.5">{t('analysis.coachingTip')}</h4>
+                <p className="text-xs text-blue-700 italic">{analysisData.coaching_tip}</p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="space-y-3 sm:space-y-4 mb-4 sm:mb-6">
         {exercises.map((exercise, index) => (
@@ -488,22 +669,11 @@ export default function WorkoutPage() {
 
           <div className="relative w-56 h-56 sm:w-72 sm:h-72 mb-8 sm:mb-12">
             <svg className="w-full h-full" viewBox="0 0 100 100">
+              <circle cx="50" cy="50" r="45" stroke="rgba(255,255,255,0.15)" strokeWidth="6" fill="none" />
               <circle
-                cx="50"
-                cy="50"
-                r="45"
-                stroke="rgba(255,255,255,0.15)"
-                strokeWidth="6"
-                fill="none"
-              />
-              <circle
-                cx="50"
-                cy="50"
-                r="45"
+                cx="50" cy="50" r="45"
                 stroke={timer.isComplete ? '#22c55e' : '#f97316'}
-                strokeWidth="6"
-                fill="none"
-                strokeLinecap="round"
+                strokeWidth="6" fill="none" strokeLinecap="round"
                 strokeDasharray={`${2 * Math.PI * 45}`}
                 strokeDashoffset={`${2 * Math.PI * 45 * (1 - getProgressPercentage() / 100)}`}
                 transform="rotate(-90 50 50)"
@@ -514,12 +684,8 @@ export default function WorkoutPage() {
             <div className="absolute inset-0 flex flex-col items-center justify-center">
               {timer.isComplete ? (
                 <div className="text-center">
-                  <p className="text-green-400 text-5xl sm:text-7xl font-bold mb-2">
-                    0:00
-                  </p>
-                  <p className="text-green-400 text-lg sm:text-xl font-medium">
-                    {t('workout.timesUp')}
-                  </p>
+                  <p className="text-green-400 text-5xl sm:text-7xl font-bold mb-2">0:00</p>
+                  <p className="text-green-400 text-lg sm:text-xl font-medium">{t('workout.timesUp')}</p>
                 </div>
               ) : (
                 <p className="text-white text-5xl sm:text-7xl font-bold tabular-nums">
@@ -548,9 +714,7 @@ export default function WorkoutPage() {
 
           <div className="absolute bottom-0 left-0 right-0 h-1 sm:h-1.5 bg-white/10">
             <div
-              className={`h-full transition-all duration-1000 ease-linear ${
-                timer.isComplete ? 'bg-green-500' : 'bg-orange-500'
-              }`}
+              className={`h-full transition-all duration-1000 ease-linear ${timer.isComplete ? 'bg-green-500' : 'bg-orange-500'}`}
               style={{ width: `${getProgressPercentage()}%` }}
             />
           </div>
