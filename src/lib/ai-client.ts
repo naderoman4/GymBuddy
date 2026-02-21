@@ -11,29 +11,21 @@ interface GenerateProgramResponse {
   error?: string
 }
 
-async function extractEdgeFunctionError(error: any): Promise<string> {
-  try {
-    const body = await error.context?.json()
-    if (body?.error) return body.error
-  } catch {
-    // body not parseable
-  }
-  return error.message || 'Unknown error'
-}
-
-export async function generateProgram(input: GenerateProgramInput): Promise<GenerateProgramResponse> {
+export async function generateProgram(input: GenerateProgramInput, accessToken: string): Promise<GenerateProgramResponse> {
   const { data, error } = await supabase.functions.invoke('generate-program', {
     body: input,
+    headers: { Authorization: `Bearer ${accessToken}` },
   })
 
   if (error) {
-    throw new Error(await extractEdgeFunctionError(error))
+    const status = (error as any)?.context?.status
+    if (status === 401) throw new Error('Not authenticated. Please log in again.')
+    if (status === 429) throw new Error('Daily AI limit reached (10/10). Try again tomorrow.')
+    if (status === 400) throw new Error('Complete your profile before generating a program.')
+    throw new Error(error.message || 'Failed to call generate-program')
   }
 
-  if (data?.error) {
-    throw new Error(data.error)
-  }
-
+  if (data?.error) throw new Error(data.error)
   return data
 }
 
@@ -53,18 +45,18 @@ interface AnalyzeWorkoutResponse {
   error?: string
 }
 
-export async function analyzeWorkout(input: AnalyzeWorkoutInput): Promise<AnalyzeWorkoutResponse> {
+export async function analyzeWorkout(input: AnalyzeWorkoutInput, accessToken: string): Promise<AnalyzeWorkoutResponse> {
   const { data, error } = await supabase.functions.invoke('analyze-workout', {
     body: input,
+    headers: { Authorization: `Bearer ${accessToken}` },
   })
 
   if (error) {
-    throw new Error(await extractEdgeFunctionError(error))
+    const status = (error as any)?.context?.status
+    if (status === 401) throw new Error('Not authenticated. Please log in again.')
+    throw new Error(error.message || 'Failed to call analyze-workout')
   }
 
-  if (data?.error) {
-    throw new Error(data.error)
-  }
-
+  if (data?.error) throw new Error(data.error)
   return data
 }
