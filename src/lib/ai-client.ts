@@ -11,23 +11,23 @@ interface GenerateProgramResponse {
   error?: string
 }
 
+async function extractEdgeFunctionError(error: any): Promise<string> {
+  try {
+    const body = await error.context?.json()
+    if (body?.error) return body.error
+  } catch {
+    // body not parseable
+  }
+  return error.message || 'Unknown error'
+}
+
 export async function generateProgram(input: GenerateProgramInput): Promise<GenerateProgramResponse> {
   const { data, error } = await supabase.functions.invoke('generate-program', {
     body: input,
   })
 
   if (error) {
-    // Try to extract the actual error body from the Edge Function response
-    const context = (error as any).context
-    if (context) {
-      try {
-        const body = await context.json()
-        throw new Error(body.error || error.message)
-      } catch {
-        // ignore parse error, fall through
-      }
-    }
-    throw new Error(error.message || 'Failed to call generate-program')
+    throw new Error(await extractEdgeFunctionError(error))
   }
 
   if (data?.error) {
@@ -59,16 +59,7 @@ export async function analyzeWorkout(input: AnalyzeWorkoutInput): Promise<Analyz
   })
 
   if (error) {
-    const context = (error as any).context
-    if (context) {
-      try {
-        const body = await context.json()
-        throw new Error(body.error || error.message)
-      } catch {
-        // ignore parse error, fall through
-      }
-    }
-    throw new Error(error.message || 'Failed to call analyze-workout')
+    throw new Error(await extractEdgeFunctionError(error))
   }
 
   if (data?.error) {
