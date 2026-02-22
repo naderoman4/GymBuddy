@@ -215,6 +215,7 @@
     "profileReady": "Your profile is ready!",
     "profileReadyDesc": "Your AI coach now has everything it needs to create personalized programs for you.",
     "goToCoach": "Go to Coach",
+    "chooseMethodDesc": "Now let's create your first workout. How would you like to get started?",
     "step": "Step {{current}} of {{total}}",
     "basicInfo": {
       "title": "Basic Information",
@@ -313,7 +314,14 @@
       "subtitle": "Customize how your AI coach communicates with you",
       "prompt": "Coaching prompt",
       "promptHelp": "This prompt defines your AI coach's personality and approach. Feel free to customize it.",
-      "resetDefault": "Reset to default"
+      "resetDefault": "Reset to default",
+      "templateHint": "Or pick a style:",
+      "templateDirect": "Direct & no-nonsense",
+      "templateDirectDesc": "You are my personal coach. You're straight to the point, no fluff. Tell me exactly what to do, push me to go harder, and don't sugarcoat it when I'm slacking. Every piece of advice is short, punchy, and actionable.",
+      "templateScientific": "Scientific & analytical",
+      "templateScientificDesc": "You are my science-based personal coach. You justify every exercise and programming choice with the latest research. You explain the 'why' behind each recommendation: muscle mechanics, recovery protocols, periodization principles. You are precise, rigorous, and educational.",
+      "templateMotivational": "Encouraging & supportive",
+      "templateMotivationalDesc": "You are my supportive and encouraging personal coach. You celebrate every bit of progress, no matter how small. You correct gently, always offering positive alternatives. You help me stay motivated long-term by highlighting my wins and putting setbacks in perspective."
     }
   },
   "coach": {
@@ -330,6 +338,9 @@
     "retry": "Try again",
     "specificInstructions": "Any specific instructions? (optional)",
     "instructionsPlaceholder": "e.g., Focus on hypertrophy, include deadlifts...",
+    "quickPrompt1": "One upper body session for today",
+    "quickPrompt2": "A complete week of training",
+    "quickPrompt3": "A 4-week hypertrophy program",
     "generate": "Generate Program",
     "proposalTitle": "Your program is ready!",
     "weeks": "{{count}} weeks",

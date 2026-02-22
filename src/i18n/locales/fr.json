@@ -215,6 +215,7 @@
     "profileReady": "Votre profil est prêt !",
     "profileReadyDesc": "Votre coach IA a tout ce qu'il faut pour créer des programmes personnalisés pour vous.",
     "goToCoach": "Aller au Coach",
+    "chooseMethodDesc": "Créons maintenant votre première séance. Comment souhaitez-vous commencer ?",
     "step": "Étape {{current}} sur {{total}}",
     "basicInfo": {
       "title": "Informations de base",
@@ -313,7 +314,14 @@
       "subtitle": "Personnalisez la façon dont votre coach IA communique avec vous",
       "prompt": "Prompt de coaching",
       "promptHelp": "Ce prompt définit la personnalité et l'approche de votre coach IA. N'hésitez pas à le personnaliser.",
-      "resetDefault": "Réinitialiser par défaut"
+      "resetDefault": "Réinitialiser par défaut",
+      "templateHint": "Ou choisissez un style :",
+      "templateDirect": "Direct & sans détour",
+      "templateDirectDesc": "Tu es mon coach sportif. Tu es direct, tu ne perds pas de temps en bavardages. Tu me dis exactement quoi faire, tu me pousses à me dépasser, et tu ne me ménages pas quand je ne donne pas le maximum. Chaque conseil est court, percutant et actionnable.",
+      "templateScientific": "Scientifique & analytique",
+      "templateScientificDesc": "Tu es mon coach sportif basé sur la science. Tu justifies chaque choix d'exercice et de programmation par les études scientifiques les plus récentes. Tu expliques le « pourquoi » derrière chaque recommandation : mécanismes musculaires, récupération, périodisation. Tu es précis, rigoureux et pédagogue.",
+      "templateMotivational": "Encourageant & bienveillant",
+      "templateMotivationalDesc": "Tu es mon coach sportif bienveillant et encourageant. Tu célèbres chaque progrès, même petit. Tu corriges avec douceur et toujours en proposant des alternatives positives. Tu m'aides à rester motivé sur le long terme en mettant en avant mes victoires et en relativisant les difficultés."
     }
   },
   "coach": {
@@ -330,6 +338,9 @@
     "retry": "Réessayer",
     "specificInstructions": "Instructions spécifiques ? (optionnel)",
     "instructionsPlaceholder": "ex : Focus hypertrophie, inclure du soulevé de terre...",
+    "quickPrompt1": "Une séance haut du corps pour aujourd'hui",
+    "quickPrompt2": "Une semaine complète d'entraînement",
+    "quickPrompt3": "Un programme hypertrophie sur 4 semaines",
     "generate": "Générer le programme",
     "proposalTitle": "Votre programme est prêt !",
     "weeks": "{{count}} semaines",

@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Check, ChevronRight, ChevronLeft } from 'lucide-react'
+import { Check, ChevronRight, ChevronLeft, Edit3, FileUp, Sparkles } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useProfile } from '../contexts/ProfileContext'
 import type { AthleteProfileUpdate } from '../lib/database.types'
@@ -123,9 +123,36 @@ export default function ProfileOnboardingPage() {
   }
 
   if (completed) {
+    const methods = [
+      {
+        key: 'manual',
+        icon: Edit3,
+        label: t('onboarding.methodManual'),
+        desc: t('onboarding.methodManualDesc'),
+        path: '/create',
+        color: 'blue',
+      },
+      {
+        key: 'import',
+        icon: FileUp,
+        label: t('onboarding.methodImport'),
+        desc: t('onboarding.methodImportDesc'),
+        path: '/import',
+        color: 'emerald',
+      },
+      {
+        key: 'ai',
+        icon: Sparkles,
+        label: t('onboarding.methodAI'),
+        desc: t('onboarding.methodAIDesc'),
+        path: '/coach',
+        color: 'purple',
+      },
+    ] as const
+
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-        <div className="text-center max-w-sm">
+        <div className="text-center max-w-sm w-full">
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <Check className="text-green-600" size={32} />
           </div>
@@ -133,21 +160,29 @@ export default function ProfileOnboardingPage() {
             {t('profileOnboarding.profileReady')}
           </h2>
           <p className="text-gray-600 mb-6">
-            {t('profileOnboarding.profileReadyDesc')}
+            {t('profileOnboarding.chooseMethodDesc')}
           </p>
           <div className="space-y-3">
-            <button
-              onClick={() => navigate('/coach')}
-              className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors font-semibold"
-            >
-              {t('profileOnboarding.goToCoach')}
-            </button>
-            <button
-              onClick={() => navigate('/')}
-              className="w-full bg-gray-100 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-200 active:bg-gray-300 transition-colors font-medium"
-            >
-              {t('onboarding.finish')}
-            </button>
+            {methods.map((m) => (
+              <button
+                key={m.key}
+                onClick={() => navigate(m.path)}
+                className="w-full flex items-center gap-4 bg-white border border-gray-200 rounded-xl p-4 hover:border-gray-300 hover:shadow-md active:bg-gray-50 transition-all text-left"
+              >
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${
+                  m.color === 'blue' ? 'bg-blue-100' : m.color === 'emerald' ? 'bg-emerald-100' : 'bg-purple-100'
+                }`}>
+                  <m.icon className={
+                    m.color === 'blue' ? 'text-blue-600' : m.color === 'emerald' ? 'text-emerald-600' : 'text-purple-600'
+                  } size={24} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-gray-900">{m.label}</p>
+                  <p className="text-sm text-gray-500">{m.desc}</p>
+                </div>
+                <ChevronRight className="text-gray-400 shrink-0" size={20} />
+              </button>
+            ))}
           </div>
         </div>
       </div>
