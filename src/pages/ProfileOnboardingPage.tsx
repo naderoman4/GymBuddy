@@ -230,7 +230,7 @@ export default function ProfileOnboardingPage() {
       </div>
 
       {/* Step Content */}
-      <div className="max-w-lg mx-auto px-4 py-6">
+      <div className="max-w-lg mx-auto px-4 pt-6 pb-28">
         {currentStep === 0 && <BasicInfoStep data={formData} onChange={handleChange} />}
         {currentStep === 1 && <AthleticBackgroundStep data={formData} onChange={handleChange} />}
         {currentStep === 2 && <GoalsStep data={formData} onChange={handleChange} />}

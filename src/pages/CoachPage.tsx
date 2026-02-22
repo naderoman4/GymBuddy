@@ -5,7 +5,6 @@ import { useTranslation } from 'react-i18next'
 import { format, addDays, nextMonday, startOfDay } from 'date-fns'
 import DatePicker from 'react-datepicker'
 import 'react-datepicker/dist/react-datepicker.css'
-import { useProfile } from '../contexts/ProfileContext'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import { generateProgram, generateWeeklyDigest } from '../lib/ai-client'
@@ -59,8 +58,6 @@ export default function CoachPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const { user } = useAuth()
-  const { hasProfile, isOnboardingComplete } = useProfile()
-
   const [viewState, setViewState] = useState<ViewState>('idle')
   const [instructions, setInstructions] = useState('')
   const [proposal, setProposal] = useState<ProgramProposal | null>(null)
@@ -145,25 +142,6 @@ export default function CoachPage() {
       setDigestError((err as Error).message)
       setDigestState('error')
     }
-  }
-
-  // Profile not complete — show CTA
-  if (!hasProfile || !isOnboardingComplete) {
-    return (
-      <div className="max-w-lg mx-auto text-center py-12 px-4">
-        <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <Brain className="text-blue-600" size={32} />
-        </div>
-        <h2 className="text-xl font-bold text-gray-900 mb-2">{t('coach.title')}</h2>
-        <p className="text-gray-600 mb-6">{t('coach.completeProfile')}</p>
-        <button
-          onClick={() => navigate('/onboarding/profile')}
-          className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors font-semibold"
-        >
-          {t('coach.setupProfile')}
-        </button>
-      </div>
-    )
   }
 
   const handleGenerate = async (feedback?: string) => {
@@ -779,6 +757,28 @@ export default function CoachPage() {
         </div>
         <h2 className="text-lg font-bold text-gray-900 mb-1">{t('coach.noProgram')}</h2>
         <p className="text-sm text-gray-600 mb-4">{t('coach.noProgramDesc')}</p>
+
+        {/* Quick prompt chips */}
+        <div className="flex flex-wrap gap-2 mb-3">
+          {(['quickPrompt1', 'quickPrompt2', 'quickPrompt3'] as const).map((key) => {
+            const label = t(`coach.${key}`)
+            const isActive = instructions === label
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setInstructions(isActive ? '' : label)}
+                className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
+                  isActive
+                    ? 'bg-blue-100 border-blue-400 text-blue-700 font-semibold'
+                    : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                {label}
+              </button>
+            )
+          })}
+        </div>
 
         <div className="text-left mb-4">
           <label className="block text-sm font-medium text-gray-700 mb-1">

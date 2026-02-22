@@ -8,7 +8,6 @@ import CalendarPage from './pages/CalendarPage'
 import WorkoutPage from './pages/WorkoutPage'
 import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
-import OnboardingPage from './pages/OnboardingPage'
 import CreateWorkoutPage from './pages/CreateWorkoutPage'
 import ImportWorkoutPage from './pages/ImportWorkoutPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
@@ -170,14 +169,6 @@ function AppContent() {
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/terms" element={<TermsPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />
-          <Route
-            path="/onboarding"
-            element={
-              <ProtectedRoute>
-                <OnboardingPage />
-              </ProtectedRoute>
-            }
-          />
           <Route
             path="/onboarding/profile"
             element={

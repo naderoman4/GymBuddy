@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, parseISO, addWeeks, subWeeks } from 'date-fns'
 import { fr, enUS } from 'date-fns/locale'
 import { ChevronLeft, ChevronRight, Download, Dumbbell, X, Plus, FileUp, Check, Trash2, Sparkles } from 'lucide-react'
@@ -12,12 +12,10 @@ import Papa from 'papaparse'
 export default function CalendarPage() {
   const { user } = useAuth()
   const { t, i18n } = useTranslation()
-  const navigate = useNavigate()
   const [currentDate, setCurrentDate] = useState(new Date())
   const [workouts, setWorkouts] = useState<Workout[]>([])
   const [selectedWorkouts, setSelectedWorkouts] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
-  const [hasCheckedWorkouts, setHasCheckedWorkouts] = useState(false)
   const [analyzedWorkoutIds, setAnalyzedWorkoutIds] = useState<Set<string>>(new Set())
   const [showTips, setShowTips] = useState(() => {
     const dismissed = localStorage.getItem('calendarTipsDismissed')
@@ -34,25 +32,6 @@ export default function CalendarPage() {
   useEffect(() => {
     fetchWorkouts()
   }, [currentDate])
-
-  useEffect(() => {
-    const checkForWorkouts = async () => {
-      if (!user || hasCheckedWorkouts) return
-
-      const { data, error } = await supabase
-        .from('workouts')
-        .select('id')
-        .eq('user_id', user.id)
-        .limit(1)
-
-      if (!error && (!data || data.length === 0)) {
-        navigate('/onboarding')
-      }
-      setHasCheckedWorkouts(true)
-    }
-
-    checkForWorkouts()
-  }, [user, hasCheckedWorkouts, navigate])
 
   const fetchWorkouts = async () => {
     setLoading(true)
