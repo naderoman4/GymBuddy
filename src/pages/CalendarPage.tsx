@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, parseISO, addWeeks, subWeeks } from 'date-fns'
 import { fr, enUS } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, Download, Dumbbell, X, Plus, FileUp, Check, Trash2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Download, Dumbbell, X, Plus, FileUp, Check, Trash2, Sparkles } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -18,6 +18,7 @@ export default function CalendarPage() {
   const [selectedWorkouts, setSelectedWorkouts] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
   const [hasCheckedWorkouts, setHasCheckedWorkouts] = useState(false)
+  const [analyzedWorkoutIds, setAnalyzedWorkoutIds] = useState<Set<string>>(new Set())
   const [showTips, setShowTips] = useState(() => {
     const dismissed = localStorage.getItem('calendarTipsDismissed')
     return dismissed !== 'true'
@@ -66,6 +67,20 @@ export default function CalendarPage() {
 
     if (!error && data) {
       setWorkouts(data)
+
+      // Fetch which done workouts have analyses
+      const doneIds = data.filter((w: any) => w.status === 'done').map((w: any) => w.id)
+      if (doneIds.length > 0) {
+        const { data: analyses } = await supabase
+          .from('workout_analyses')
+          .select('workout_id')
+          .in('workout_id', doneIds)
+        if (analyses) {
+          setAnalyzedWorkoutIds(new Set(analyses.map((a: any) => a.workout_id)))
+        }
+      } else {
+        setAnalyzedWorkoutIds(new Set())
+      }
     }
     setLoading(false)
   }
@@ -348,10 +363,15 @@ export default function CalendarPage() {
                               </div>
                             </Link>
 
-                            {/* Status badge */}
-                            <span className={`flex-shrink-0 text-xs px-2 py-1 rounded-full ${getStatusBadgeColor(workout.status)}`}>
-                              {getStatusLabel(workout.status)}
-                            </span>
+                            {/* Analysis indicator + Status badge */}
+                            <div className="flex items-center gap-1.5 flex-shrink-0">
+                              {analyzedWorkoutIds.has(workout.id) && (
+                                <Sparkles size={14} className="text-amber-500" />
+                              )}
+                              <span className={`text-xs px-2 py-1 rounded-full ${getStatusBadgeColor(workout.status)}`}>
+                                {getStatusLabel(workout.status)}
+                              </span>
+                            </div>
                           </div>
                         ))}
                       </div>

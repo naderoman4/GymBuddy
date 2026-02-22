@@ -86,7 +86,8 @@
     "tip3": "Green = completed, Orange = planned",
     "deleteConfirm": "Are you sure you want to delete {{count}} workout(s)? This will also delete all associated exercises. This action cannot be undone.",
     "exportError": "Error fetching exercises for export",
-    "deleteError": "Error deleting workouts: {{message}}"
+    "deleteError": "Error deleting workouts: {{message}}",
+    "hasAnalysis": "AI analysis available"
   },
   "workout": {
     "backToWorkouts": "Back to Workouts",
@@ -365,6 +366,23 @@
     "stable": "Stable",
     "declining": "Declining",
     "errorAnalysis": "Could not analyze this workout.",
+    "retry": "Try again"
+  },
+  "digest": {
+    "title": "Weekly Digest",
+    "generate": "Generate Weekly Digest",
+    "generating": "Your coach is preparing your weekly digest...",
+    "noWorkouts": "Complete some workouts this week to get your digest.",
+    "overall": "Overall Week",
+    "excellent": "Excellent",
+    "good": "Good",
+    "average": "Average",
+    "needs_improvement": "Needs improvement",
+    "achievements": "Key Achievements",
+    "areasToImprove": "Areas to Improve",
+    "recommendations": "Recommendations for Next Week",
+    "workoutsCompleted": "{{completed}} of {{planned}} workouts completed",
+    "errorDigest": "Could not generate your weekly digest.",
     "retry": "Try again"
   }
 }

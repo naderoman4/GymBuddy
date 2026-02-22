@@ -571,7 +571,8 @@ export default function WorkoutPage() {
                   inputMode="numeric"
                   value={exercise.realized_sets || ''}
                   onChange={(e) => updateExercise(exercise.id, 'realized_sets', e.target.value ? parseInt(e.target.value) : null)}
-                  className="w-full px-2 sm:px-3 py-2 sm:py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
+                  disabled={workout.status === 'done'}
+                  className={`w-full px-2 sm:px-3 py-2 sm:py-2.5 border border-gray-300 rounded-lg text-sm sm:text-base ${workout.status === 'done' ? 'bg-gray-50 text-gray-600 cursor-not-allowed' : 'focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
                   placeholder="0"
                 />
               </div>
@@ -586,7 +587,8 @@ export default function WorkoutPage() {
                   inputMode="numeric"
                   value={exercise.realized_reps || ''}
                   onChange={(e) => updateExercise(exercise.id, 'realized_reps', e.target.value ? parseInt(e.target.value) : null)}
-                  className="w-full px-2 sm:px-3 py-2 sm:py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
+                  disabled={workout.status === 'done'}
+                  className={`w-full px-2 sm:px-3 py-2 sm:py-2.5 border border-gray-300 rounded-lg text-sm sm:text-base ${workout.status === 'done' ? 'bg-gray-50 text-gray-600 cursor-not-allowed' : 'focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
                   placeholder="0"
                 />
               </div>
@@ -600,7 +602,8 @@ export default function WorkoutPage() {
                   inputMode="decimal"
                   value={exercise.realized_weight || ''}
                   onChange={(e) => updateExercise(exercise.id, 'realized_weight', e.target.value || null)}
-                  className="w-full px-2 sm:px-3 py-2 sm:py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
+                  disabled={workout.status === 'done'}
+                  className={`w-full px-2 sm:px-3 py-2 sm:py-2.5 border border-gray-300 rounded-lg text-sm sm:text-base ${workout.status === 'done' ? 'bg-gray-50 text-gray-600 cursor-not-allowed' : 'focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
                   placeholder="kg"
                 />
               </div>
@@ -613,12 +616,14 @@ export default function WorkoutPage() {
               <textarea
                 value={exercise.notes || ''}
                 onChange={(e) => updateExercise(exercise.id, 'notes', e.target.value || null)}
-                className="w-full px-2 sm:px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
+                disabled={workout.status === 'done'}
+                className={`w-full px-2 sm:px-3 py-2 border border-gray-300 rounded-lg text-sm sm:text-base ${workout.status === 'done' ? 'bg-gray-50 text-gray-600 cursor-not-allowed' : 'focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
                 rows={2}
                 placeholder={t('workout.addNotes')}
               />
             </div>
 
+            {workout.status !== 'done' && (
             <div className="flex gap-2 sm:gap-3">
               <button
                 onClick={() => saveExercise(exercise)}
@@ -636,6 +641,7 @@ export default function WorkoutPage() {
                 {t('common.rest')}
               </button>
             </div>
+            )}
           </div>
         ))}
       </div>

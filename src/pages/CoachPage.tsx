@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Brain, Sparkles, ChevronDown, ChevronRight, AlertCircle, Check, Calendar } from 'lucide-react'
+import { Brain, Sparkles, ChevronDown, ChevronRight, AlertCircle, Check, Calendar, BarChart3, Trophy, Target, Lightbulb, MessageSquare } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { format, addDays, nextMonday, startOfDay } from 'date-fns'
 import DatePicker from 'react-datepicker'
@@ -8,7 +8,8 @@ import 'react-datepicker/dist/react-datepicker.css'
 import { useProfile } from '../contexts/ProfileContext'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
-import { generateProgram } from '../lib/ai-client'
+import { generateProgram, generateWeeklyDigest } from '../lib/ai-client'
+import type { WeeklyDigestResponse } from '../lib/ai-client'
 
 interface ProgramWeek {
   week_number: number
@@ -82,6 +83,12 @@ export default function CoachPage() {
   const [showFeedback, setShowFeedback] = useState(false)
   const [feedbackText, setFeedbackText] = useState('')
 
+  // Weekly digest state
+  type DigestState = 'idle' | 'generating' | 'done' | 'error'
+  const [digestState, setDigestState] = useState<DigestState>('idle')
+  const [digestData, setDigestData] = useState<WeeklyDigestResponse['digest'] | null>(null)
+  const [digestError, setDigestError] = useState('')
+
   // Load active program on mount
   useEffect(() => {
     if (!user) return
@@ -96,6 +103,49 @@ export default function CoachPage() {
         if (data && data.length > 0) setActiveProgram(data[0])
       })
   }, [user])
+
+  // Check for existing weekly digest this week
+  useEffect(() => {
+    if (!user) return
+    const now = new Date()
+    const dayOfWeek = now.getDay()
+    const startOfWeek = new Date(now)
+    startOfWeek.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1))
+    startOfWeek.setHours(0, 0, 0, 0)
+
+    supabase
+      .from('ai_recommendations')
+      .select('context')
+      .eq('user_id', user.id)
+      .eq('type', 'progression')
+      .gte('created_at', startOfWeek.toISOString())
+      .ilike('title', 'Weekly Digest%')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .then(({ data }: any) => {
+        if (data && data.length > 0 && data[0].context) {
+          setDigestData(data[0].context as any)
+          setDigestState('done')
+        }
+      })
+  }, [user])
+
+  const handleGenerateDigest = async () => {
+    setDigestState('generating')
+    setDigestError('')
+
+    try {
+      const { data: { session: freshSession } } = await supabase.auth.refreshSession()
+      if (!freshSession?.access_token) throw new Error('Not authenticated')
+
+      const result = await generateWeeklyDigest(freshSession.access_token)
+      setDigestData(result.digest)
+      setDigestState('done')
+    } catch (err) {
+      setDigestError((err as Error).message)
+      setDigestState('error')
+    }
+  }
 
   // Profile not complete — show CTA
   if (!hasProfile || !isOnboardingComplete) {
@@ -123,8 +173,9 @@ export default function CoachPage() {
     setShowFeedback(false)
 
     try {
-      const { data: { session: freshSession } } = await supabase.auth.refreshSession()
-      if (!freshSession?.access_token) throw new Error('Not authenticated. Please log in again.')
+      const { data: { session: freshSession }, error: refreshError } = await supabase.auth.refreshSession()
+      console.log('[Coach] refreshSession result:', { session: !!freshSession, token: freshSession?.access_token?.substring(0, 30), error: refreshError })
+      if (!freshSession?.access_token) throw new Error(`Auth refresh failed: ${refreshError?.message || 'no session'}`)
 
       const result = await generateProgram({
         specific_instructions: instructions || undefined,
@@ -281,6 +332,165 @@ export default function CoachPage() {
     setExpandedWeeks(next)
   }
 
+  const getRatingColor = (rating: string) => {
+    switch (rating) {
+      case 'excellent': return 'bg-green-100 text-green-800'
+      case 'good': return 'bg-blue-100 text-blue-800'
+      case 'average': return 'bg-amber-100 text-amber-800'
+      case 'needs_improvement': return 'bg-red-100 text-red-800'
+      default: return 'bg-gray-100 text-gray-800'
+    }
+  }
+
+  const renderDigestSection = () => {
+    if (digestState === 'generating') {
+      return (
+        <div className="bg-white rounded-lg shadow-md p-4">
+          <div className="animate-pulse space-y-3">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                <BarChart3 size={16} className="text-blue-400" />
+              </div>
+              <p className="text-sm font-medium text-gray-700">{t('digest.generating')}</p>
+            </div>
+            <div className="h-4 bg-gray-200 rounded w-3/4" />
+            <div className="h-4 bg-gray-200 rounded w-5/6" />
+            <div className="h-4 bg-gray-200 rounded w-2/3" />
+          </div>
+        </div>
+      )
+    }
+
+    if (digestState === 'error') {
+      return (
+        <div className="bg-white rounded-lg shadow-md p-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle size={20} className="text-red-500 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-gray-900">{t('digest.errorDigest')}</p>
+              {digestError && <p className="text-xs text-red-600 mt-1">{digestError}</p>}
+              <button
+                onClick={handleGenerateDigest}
+                className="mt-2 text-sm text-blue-600 hover:text-blue-700 font-medium"
+              >
+                {t('digest.retry')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    if (digestState === 'done' && digestData) {
+      return (
+        <div className="bg-white rounded-lg shadow-md p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-gray-900 text-sm flex items-center gap-2">
+              <BarChart3 size={16} className="text-blue-600" />
+              {t('digest.title')}
+            </h3>
+            <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${getRatingColor(digestData.overall_rating)}`}>
+              {t(`digest.${digestData.overall_rating}`)}
+            </span>
+          </div>
+
+          <p className="text-sm text-gray-700">{digestData.week_summary}</p>
+
+          <p className="text-xs text-gray-500">
+            {t('digest.workoutsCompleted', {
+              completed: digestData.workouts_completed,
+              planned: digestData.workouts_planned,
+            })}
+          </p>
+
+          {/* Achievements */}
+          {digestData.key_achievements.length > 0 && (
+            <div>
+              <h4 className="text-xs font-semibold text-green-700 mb-1.5 flex items-center gap-1">
+                <Trophy size={12} />
+                {t('digest.achievements')}
+              </h4>
+              <div className="space-y-1">
+                {digestData.key_achievements.map((a, i) => (
+                  <div key={i} className="flex items-start gap-2 bg-green-50 rounded-lg px-3 py-2">
+                    <Check size={14} className="text-green-600 flex-shrink-0 mt-0.5" />
+                    <p className="text-xs text-green-800">{a}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Areas to improve */}
+          {digestData.areas_to_improve.length > 0 && (
+            <div>
+              <h4 className="text-xs font-semibold text-amber-700 mb-1.5 flex items-center gap-1">
+                <Target size={12} />
+                {t('digest.areasToImprove')}
+              </h4>
+              <div className="space-y-1">
+                {digestData.areas_to_improve.map((a, i) => (
+                  <div key={i} className="flex items-start gap-2 bg-amber-50 rounded-lg px-3 py-2">
+                    <AlertCircle size={14} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                    <p className="text-xs text-amber-800">{a}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Recommendations */}
+          {digestData.recommendations.length > 0 && (
+            <div>
+              <h4 className="text-xs font-semibold text-blue-700 mb-1.5 flex items-center gap-1">
+                <Lightbulb size={12} />
+                {t('digest.recommendations')}
+              </h4>
+              <div className="space-y-1">
+                {digestData.recommendations.map((r, i) => (
+                  <div key={i} className="flex items-start gap-2 bg-blue-50 rounded-lg px-3 py-2">
+                    <ChevronRight size={14} className="text-blue-600 flex-shrink-0 mt-0.5" />
+                    <p className="text-xs text-blue-800">{r}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Motivational note */}
+          {digestData.motivational_note && (
+            <div className="flex items-start gap-2 bg-purple-50 rounded-lg px-3 py-2.5">
+              <MessageSquare size={14} className="text-purple-600 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-purple-800 italic">{digestData.motivational_note}</p>
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    // idle state — show generate button
+    return (
+      <div className="bg-white rounded-lg shadow-md p-4">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+            <BarChart3 className="text-blue-600" size={20} />
+          </div>
+          <div>
+            <h3 className="font-bold text-gray-900 text-sm">{t('digest.title')}</h3>
+            <p className="text-xs text-gray-500">{t('digest.noWorkouts')}</p>
+          </div>
+        </div>
+        <button
+          onClick={handleGenerateDigest}
+          className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2.5 rounded-lg hover:from-blue-700 hover:to-purple-700 active:from-blue-800 active:to-purple-800 transition-all font-medium text-sm flex items-center justify-center gap-2"
+        >
+          <BarChart3 size={16} />
+          {t('digest.generate')}
+        </button>
+      </div>
+    )
+  }
+
   // --- RENDER ---
 
   // Active program display
@@ -307,6 +517,8 @@ export default function CoachPage() {
             </div>
           </div>
         </div>
+
+        {renderDigestSection()}
 
         <button
           onClick={() => {
@@ -558,6 +770,8 @@ export default function CoachPage() {
   return (
     <div className="max-w-lg mx-auto px-4 py-2 space-y-4">
       <h1 className="text-2xl font-bold text-gray-900">{t('coach.title')}</h1>
+
+      {renderDigestSection()}
 
       <div className="bg-white rounded-lg shadow-md p-5 text-center">
         <div className="w-14 h-14 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">

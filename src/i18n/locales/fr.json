@@ -86,7 +86,8 @@
     "tip3": "Vert = terminé, Orange = planifié",
     "deleteConfirm": "Êtes-vous sûr de vouloir supprimer {{count}} séance(s) ? Tous les exercices associés seront aussi supprimés. Cette action est irréversible.",
     "exportError": "Erreur lors de l'export des exercices",
-    "deleteError": "Erreur lors de la suppression : {{message}}"
+    "deleteError": "Erreur lors de la suppression : {{message}}",
+    "hasAnalysis": "Analyse IA disponible"
   },
   "workout": {
     "backToWorkouts": "Retour aux séances",
@@ -365,6 +366,23 @@
     "stable": "Stable",
     "declining": "En baisse",
     "errorAnalysis": "Impossible d'analyser cette séance.",
+    "retry": "Réessayer"
+  },
+  "digest": {
+    "title": "Bilan hebdomadaire",
+    "generate": "Générer le bilan hebdomadaire",
+    "generating": "Votre coach prépare votre bilan de la semaine...",
+    "noWorkouts": "Complétez des séances cette semaine pour obtenir votre bilan.",
+    "overall": "Semaine globale",
+    "excellent": "Excellent",
+    "good": "Bien",
+    "average": "Moyen",
+    "needs_improvement": "À améliorer",
+    "achievements": "Points forts de la semaine",
+    "areasToImprove": "Axes d'amélioration",
+    "recommendations": "Recommandations pour la semaine prochaine",
+    "workoutsCompleted": "{{completed}} sur {{planned}} séances complétées",
+    "errorDigest": "Impossible de générer votre bilan hebdomadaire.",
     "retry": "Réessayer"
   }
 }

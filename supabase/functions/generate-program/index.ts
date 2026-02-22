@@ -165,60 +165,57 @@ ${profileBlock}
 TRAINING HISTORY (last 8 weeks):
 ${trainingHistory}
 
-TASK: Generate a complete, personalized workout program for this athlete.
+TASK: Generate a personalized workout program for this athlete.
+IMPORTANT CONSTRAINTS:
+- Generate exactly 4 weeks maximum
+- Keep exercise names concise
+- Do NOT add explanations or notes — ONLY the JSON object
+- Be concise with string values
 ${specific_instructions ? `\nSPECIFIC INSTRUCTIONS FROM ATHLETE: ${specific_instructions}` : ''}
 ${feedback ? `\nFEEDBACK ON PREVIOUS PROGRAM: ${feedback}` : ''}
 
 RESPOND IN: ${respondIn}
 
-OUTPUT: Return ONLY valid JSON matching this schema (no markdown, no explanation, just JSON):
+OUTPUT: Return ONLY valid JSON matching this schema (no markdown fences, no text before/after, JUST the JSON object):
 ${jsonSchema}`
 
     // Call Claude API
     const anthropic = new Anthropic({ apiKey: Deno.env.get('ANTHROPIC_API_KEY')! })
 
+    const response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 8192,
+      temperature: 0.7,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userPrompt }] as any,
+    })
+
+    const rawText = response.content
+      .filter((block: any) => block.type === 'text')
+      .map((block: any) => block.text)
+      .join('')
+    const inputTokens = response.usage?.input_tokens || 0
+    const outputTokens = response.usage?.output_tokens || 0
+
+    // Strip markdown fences if present
+    let jsonText = rawText.trim()
+    if (jsonText.startsWith('```')) {
+      jsonText = jsonText.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '')
+    }
+
     let aiResponse: any = null
-    let rawText = ''
-    let inputTokens = 0
-    let outputTokens = 0
-
-    for (let attempt = 0; attempt < 2; attempt++) {
-      const messages: Array<{ role: string; content: string }> = [
-        { role: 'user', content: attempt === 0 ? userPrompt : `${userPrompt}\n\nIMPORTANT: Your previous response was not valid JSON. Return ONLY a valid JSON object, no markdown fences.` },
-      ]
-
-      const response = await anthropic.messages.create({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 4096,
-        temperature: 0.7,
-        system: systemPrompt,
-        messages: messages as any,
+    try {
+      aiResponse = JSON.parse(jsonText)
+    } catch {
+      return new Response(JSON.stringify({
+        error: 'AI returned invalid JSON. Please try again.',
+        debug_preview: rawText.substring(0, 500),
+        debug_end: rawText.substring(rawText.length - 200),
+        stop_reason: response.stop_reason,
+      }), {
+        status: 502,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
-
-      rawText = response.content
-        .filter((block: any) => block.type === 'text')
-        .map((block: any) => block.text)
-        .join('')
-      inputTokens = response.usage?.input_tokens || 0
-      outputTokens = response.usage?.output_tokens || 0
-
-      // Strip markdown fences if present
-      let jsonText = rawText.trim()
-      if (jsonText.startsWith('```')) {
-        jsonText = jsonText.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '')
-      }
-
-      try {
-        aiResponse = JSON.parse(jsonText)
-        break
-      } catch {
-        if (attempt === 1) {
-          return new Response(JSON.stringify({ error: 'AI returned invalid JSON. Please try again.' }), {
-            status: 502,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          })
-        }
-      }
     }
 
     // Basic validation

@@ -588,10 +588,36 @@ When WorkoutPage loads for a `planned` workout:
 
 **6C. Weekly Digest**
 
-- Generated when user opens the app on Monday (or first app open of the week)
-- Stored as `ai_recommendations` with `type = 'progression'`
-- Content: workouts completed vs planned, key progressions, focus for the week
-- Shown as a special card at the top of the recommendations feed on CoachPage
+- Manually triggered via "Generate Weekly Digest" button on CoachPage
+- Edge Function: `weekly-digest` — fetches last 7 days of completed workouts, their exercises, and existing analyses
+- Single Claude call (Sonnet, max_tokens: 2048, temp: 0.4) returns JSON digest
+- Stored in `ai_recommendations` table with `type = 'progression'`, full JSON in `context` column
+- No new DB migration needed — reuses existing `ai_recommendations` schema
+- Counts toward the daily 10-call AI limit
+- On CoachPage mount: checks for existing digest from this week before showing generate button
+- Digest card displays: overall rating badge, week summary, workouts completed count, key achievements (green), areas to improve (amber), recommendations list, motivational note
+
+**Digest JSON schema (Claude output):**
+```json
+{
+  "week_summary": "string (3-4 sentence overview)",
+  "overall_rating": "excellent | good | average | needs_improvement",
+  "workouts_completed": "number",
+  "workouts_planned": "number",
+  "key_achievements": ["string"],
+  "areas_to_improve": ["string"],
+  "recommendations": [{ "title": "string", "detail": "string" }],
+  "motivational_note": "string"
+}
+```
+
+**6D. Past Workout Analysis Browsing**
+
+- CalendarPage: completed workouts that have an analysis show a `Sparkles` icon indicator
+- Clicking a completed workout navigates to WorkoutPage which loads the existing analysis from `workout_analyses` table
+- WorkoutPage shows exercise inputs as read-only (disabled) when `workout.status === 'done'`
+- Analysis card always displays for completed workouts with an existing analysis (not just post-completion flow)
+- No new Edge Function needed — uses data already saved by `analyze-workout`
 
 ---
 
@@ -720,10 +746,11 @@ serve(async (req) => {
 
 | Function | Purpose | Max tokens | Temp |
 |---|---|---|---|
-| `generate-program` | Create multi-week program | 4096 | 0.7 |
+| `generate-program` | Create multi-week program | 8192 | 0.7 |
 | `analyze-workout` | Post-workout analysis | 1024 | 0.3 |
+| `weekly-digest` | Weekly training summary across all workouts | 2048 | 0.4 |
 | `adjust-program` | Modify upcoming workouts based on feedback | 2048 | 0.5 |
-| `get-recommendations` | Contextual tips, weekly digest, ask-coach Q&A | 1024 | 0.5 |
+| `get-recommendations` | Contextual tips, ask-coach Q&A | 1024 | 0.5 |
 
 ### Client-Side Wrapper
 
