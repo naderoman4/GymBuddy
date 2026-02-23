@@ -395,5 +395,19 @@
     "workoutsCompleted": "{{completed}} sur {{planned}} séances complétées",
     "errorDigest": "Impossible de générer votre bilan hebdomadaire.",
     "retry": "Réessayer"
+  },
+  "recs": {
+    "title": "Recommandations",
+    "empty": "Terminez quelques séances et votre coach commencera à vous donner des conseils.",
+    "dismiss": "Ignorer",
+    "save": "Épingler",
+    "saved": "Épinglé",
+    "showMore": "Voir plus",
+    "showLess": "Voir moins",
+    "typeProgression": "Progression",
+    "typeRecovery": "Récupération",
+    "typeTechnique": "Technique",
+    "typeNutrition": "Nutrition",
+    "typeGeneral": "Général"
   }
 }

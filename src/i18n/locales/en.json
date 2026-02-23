@@ -395,5 +395,19 @@
     "workoutsCompleted": "{{completed}} of {{planned}} workouts completed",
     "errorDigest": "Could not generate your weekly digest.",
     "retry": "Try again"
+  },
+  "recs": {
+    "title": "Recommendations",
+    "empty": "Complete a few workouts and your coach will start giving tips.",
+    "dismiss": "Dismiss",
+    "save": "Pin",
+    "saved": "Pinned",
+    "showMore": "Show more",
+    "showLess": "Show less",
+    "typeProgression": "Progression",
+    "typeRecovery": "Recovery",
+    "typeTechnique": "Technique",
+    "typeNutrition": "Nutrition",
+    "typeGeneral": "General"
   }
 }
