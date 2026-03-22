@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Save, CheckCircle, Clock, Target, Timer, X, Dumbbell, Trash2, Lightbulb, TrendingUp, TrendingDown, Minus, AlertCircle, Pencil, Plus } from 'lucide-react'
+import { ArrowLeft, Save, CheckCircle, Clock, Target, Timer, X, Dumbbell, Trash2, Lightbulb, TrendingUp, TrendingDown, Minus, AlertCircle, Pencil, Plus, ChevronDown, ChevronUp, Bot } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../lib/supabase'
-import { analyzeWorkout } from '../lib/ai-client'
+import { analyzeWorkout, parseExerciseLog } from '../lib/ai-client'
+import type { ParsedSet } from '../lib/ai-client'
 import { useProfile } from '../contexts/ProfileContext'
 import { useAuth } from '../contexts/AuthContext'
 import type { Workout, Exercise } from '../lib/database.types'
@@ -51,11 +52,19 @@ export default function WorkoutPage() {
   const navigate = useNavigate()
   const { t, i18n } = useTranslation()
   const { isOnboardingComplete } = useProfile()
-  const { user } = useAuth()
+  const { user, session } = useAuth()
   const [workout, setWorkout] = useState<Workout | null>(null)
   const [exercises, setExercises] = useState<Exercise[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+
+  // Per-set logging state
+  const [setLogs, setSetLogs] = useState<Map<string, ParsedSet[]>>(new Map())
+  const [setLogsExpanded, setSetLogsExpanded] = useState<Map<string, boolean>>(new Map())
+  const [aiParseExpanded, setAiParseExpanded] = useState<Map<string, boolean>>(new Map())
+  const [aiParseText, setAiParseText] = useState<Map<string, string>>(new Map())
+  const [aiParsing, setAiParsing] = useState<Map<string, boolean>>(new Map())
+  const [aiParseError, setAiParseError] = useState<Map<string, string>>(new Map())
 
   // Edit mode state
   const [isEditing, setIsEditing] = useState(false)
@@ -137,6 +146,15 @@ export default function WorkoutPage() {
     if (!exercisesError && exercisesData) {
       setWorkout(workoutData)
       setExercises(exercisesData)
+      // Initialise per-set logs from DB data
+      const logsMap = new Map<string, ParsedSet[]>()
+      ;(exercisesData as Exercise[]).forEach(ex => {
+        const rawLogs = (ex as any).set_logs
+        if (Array.isArray(rawLogs) && rawLogs.length > 0) {
+          logsMap.set(ex.id, rawLogs as ParsedSet[])
+        }
+      })
+      setSetLogs(logsMap)
     }
 
     setLoading(false)
@@ -151,6 +169,8 @@ export default function WorkoutPage() {
   const saveExercise = async (exercise: Exercise) => {
     setSaving(true)
 
+    const setLogsForExercise = setLogs.get(exercise.id) || []
+
     const { error } = await supabase
       .from('exercises')
       // @ts-expect-error Supabase types inference issue
@@ -158,7 +178,8 @@ export default function WorkoutPage() {
         realized_sets: exercise.realized_sets,
         realized_reps: exercise.realized_reps,
         realized_weight: exercise.realized_weight,
-        notes: exercise.notes
+        notes: exercise.notes,
+        set_logs: setLogsForExercise,
       })
       .eq('id', exercise.id)
 
@@ -167,6 +188,94 @@ export default function WorkoutPage() {
     }
 
     setSaving(false)
+  }
+
+  // ── Per-set log helpers ────────────────────────────────────────────────────
+
+  const toggleSetLogs = (exerciseId: string) => {
+    setSetLogsExpanded(prev => {
+      const next = new Map(prev)
+      next.set(exerciseId, !prev.get(exerciseId))
+      return next
+    })
+  }
+
+  const toggleAiParse = (exerciseId: string) => {
+    setAiParseExpanded(prev => {
+      const next = new Map(prev)
+      next.set(exerciseId, !prev.get(exerciseId))
+      return next
+    })
+  }
+
+  const updateSetLog = (exerciseId: string, setIndex: number, field: keyof ParsedSet, value: any) => {
+    setSetLogs(prev => {
+      const next = new Map(prev)
+      const logs = [...(next.get(exerciseId) || [])]
+      logs[setIndex] = { ...logs[setIndex], [field]: value }
+      next.set(exerciseId, logs)
+      return next
+    })
+  }
+
+  const addSetLog = (exerciseId: string) => {
+    setSetLogs(prev => {
+      const next = new Map(prev)
+      const logs = next.get(exerciseId) || []
+      const newSet: ParsedSet = {
+        set_number: logs.length + 1,
+        weight_kg: null,
+        reps: null,
+        set_type: 'working',
+        completed: true,
+      }
+      next.set(exerciseId, [...logs, newSet])
+      return next
+    })
+  }
+
+  const removeSetLog = (exerciseId: string, setIndex: number) => {
+    setSetLogs(prev => {
+      const next = new Map(prev)
+      const logs = (next.get(exerciseId) || []).filter((_, i) => i !== setIndex)
+      // Re-number
+      const renumbered = logs.map((s, i) => ({ ...s, set_number: i + 1 }))
+      next.set(exerciseId, renumbered)
+      return next
+    })
+  }
+
+  const handleAiParse = async (exercise: Exercise) => {
+    const text = aiParseText.get(exercise.id) || ''
+    if (!text.trim()) return
+
+    const accessToken = session?.access_token
+    if (!accessToken) {
+      setAiParseError(prev => { const n = new Map(prev); n.set(exercise.id, 'Not authenticated'); return n })
+      return
+    }
+
+    setAiParsing(prev => { const n = new Map(prev); n.set(exercise.id, true); return n })
+    setAiParseError(prev => { const n = new Map(prev); n.set(exercise.id, ''); return n })
+
+    try {
+      const parsed = await parseExerciseLog(
+        {
+          text,
+          exercise_name: exercise.exercise_name,
+          expected_sets: exercise.expected_sets,
+          expected_reps: exercise.expected_reps,
+        },
+        accessToken
+      )
+      setSetLogs(prev => { const n = new Map(prev); n.set(exercise.id, parsed); return n })
+      // Expand set details to show result
+      setSetLogsExpanded(prev => { const n = new Map(prev); n.set(exercise.id, true); return n })
+    } catch (err) {
+      setAiParseError(prev => { const n = new Map(prev); n.set(exercise.id, (err as Error).message); return n })
+    } finally {
+      setAiParsing(prev => { const n = new Map(prev); n.set(exercise.id, false); return n })
+    }
   }
 
   const triggerAnalysis = async () => {
@@ -293,6 +402,7 @@ export default function WorkoutPage() {
       realized_reps: null,
       realized_weight: null,
       notes: null,
+      set_logs: null,
       user_id: user.id,
       created_at: new Date().toISOString(),
       _isNew: true,
@@ -498,7 +608,7 @@ export default function WorkoutPage() {
   if (loading) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-500">{t('workout.loadingWorkout')}</p>
+        <p className="text-sm text-gray-500">{t('workout.loadingWorkout')}</p>
       </div>
     )
   }
@@ -506,7 +616,7 @@ export default function WorkoutPage() {
   if (!workout) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-500">{t('workout.notFound')}</p>
+        <p className="text-sm text-gray-500">{t('workout.notFound')}</p>
       </div>
     )
   }
@@ -570,20 +680,20 @@ export default function WorkoutPage() {
     const activeExercises = editState.exercises.filter(ex => !ex._deleted)
 
     return (
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-4xl mx-auto pb-24">
         <button
           onClick={cancelEditMode}
-          className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 sm:mb-6 active:text-gray-600"
+          className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 sm:mb-6"
         >
           <ArrowLeft size={20} />
-          <span className="text-sm sm:text-base">{t('workout.backToWorkouts')}</span>
+          <span className="text-sm">{t('workout.backToWorkouts')}</span>
         </button>
 
         {/* Edit mode header card */}
-        <div className="bg-white rounded-lg shadow-md border-2 border-blue-400 p-4 sm:p-6 mb-4 sm:mb-6">
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm ring-2 ring-blue-400 p-4 sm:p-6 mb-4">
           <div className="flex items-center gap-2 mb-4">
-            <Pencil size={16} className="text-blue-600" />
-            <span className="text-sm font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded">
+            <Pencil size={14} className="text-blue-600" />
+            <span className="text-xs font-semibold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-full">
               {t('workout.editing')}
             </span>
           </div>
@@ -592,25 +702,25 @@ export default function WorkoutPage() {
             {/* Name + Date row */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-xs font-medium text-gray-500 mb-1">
                   {t('workout.workoutName')} *
                 </label>
                 <input
                   type="text"
                   value={editState.name}
                   onChange={e => updateEditField('name', e.target.value)}
-                  className="block w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
+                  className="block w-full h-10 px-3 border border-gray-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm text-gray-900"
                 />
               </div>
               <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-xs font-medium text-gray-500 mb-1">
                   {t('workout.workoutDate')} *
                 </label>
                 <input
                   type="date"
                   value={editState.date}
                   onChange={e => updateEditField('date', e.target.value)}
-                  className="block w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
+                  className="block w-full h-10 px-3 border border-gray-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm text-gray-900"
                 />
               </div>
             </div>
@@ -618,13 +728,13 @@ export default function WorkoutPage() {
             {/* Type + Notes row */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-xs font-medium text-gray-500 mb-1">
                   {t('workout.workoutType')} *
                 </label>
                 <select
                   value={editState.workout_type}
                   onChange={e => updateEditField('workout_type', e.target.value)}
-                  className="block w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
+                  className="block w-full h-10 px-3 border border-gray-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm text-gray-900 bg-white"
                 >
                   <option value="Strength">{t('workout.strength')}</option>
                   <option value="Cardio">{t('workout.cardio')}</option>
@@ -633,14 +743,14 @@ export default function WorkoutPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-xs font-medium text-gray-500 mb-1">
                   {t('workout.workoutNotes')}
                 </label>
                 <textarea
                   value={editState.notes}
                   onChange={e => updateEditField('notes', e.target.value)}
                   rows={2}
-                  className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base resize-none"
+                  className="block w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm text-gray-900 resize-none"
                 />
               </div>
             </div>
@@ -648,32 +758,32 @@ export default function WorkoutPage() {
         </div>
 
         {/* Exercises in edit mode */}
-        <div className="space-y-3 sm:space-y-4 mb-4">
+        <div className="space-y-3 mb-4">
           {activeExercises.map((exercise, index) => (
-            <div key={exercise.id} className="bg-white rounded-lg shadow-md border-2 border-blue-100 p-4 sm:p-6">
-              <div className="flex justify-between items-start mb-3">
-                <h4 className="font-medium text-gray-700 text-sm sm:text-base">
+            <div key={exercise.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+              <div className="flex justify-between items-center mb-3">
+                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                   {t('createWorkout.exerciseTitle', { number: index + 1 })}
-                </h4>
+                </span>
                 <button
                   onClick={() => removeEditExercise(exercise.id)}
-                  className="text-red-500 hover:text-red-700 active:text-red-800 p-1"
+                  className="h-8 w-8 flex items-center justify-center text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                   title={t('workout.deleteExercise')}
                 >
-                  <Trash2 size={18} />
+                  <Trash2 size={16} />
                 </button>
               </div>
 
               {/* Exercise name */}
               <div className="mb-3">
-                <label className="block text-xs font-medium text-gray-600 mb-1">
+                <label className="block text-xs font-medium text-gray-500 mb-1">
                   {t('workout.exerciseName')} *
                 </label>
                 <input
                   type="text"
                   value={exercise.exercise_name}
                   onChange={e => updateEditExercise(exercise.id, 'exercise_name', e.target.value)}
-                  className="block w-full px-2.5 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                  className="block w-full h-10 px-3 border border-gray-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm text-gray-900"
                   placeholder={t('createWorkout.exerciseNamePlaceholder')}
                 />
               </div>
@@ -681,51 +791,51 @@ export default function WorkoutPage() {
               {/* Sets / Reps / Weight / Rest / RPE */}
               <div className="grid grid-cols-3 gap-2 sm:gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">{t('common.sets')} *</label>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">{t('common.sets')} *</label>
                   <input
                     type="number"
                     inputMode="numeric"
                     min="1"
                     value={exercise.expected_sets}
                     onChange={e => updateEditExercise(exercise.id, 'expected_sets', parseInt(e.target.value) || 1)}
-                    className="block w-full px-2 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                    className="block w-full h-10 px-3 border border-gray-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm text-gray-900"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">{t('common.reps')} *</label>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">{t('common.reps')} *</label>
                   <input
                     type="number"
                     inputMode="numeric"
                     min="1"
                     value={exercise.expected_reps}
                     onChange={e => updateEditExercise(exercise.id, 'expected_reps', parseInt(e.target.value) || 1)}
-                    className="block w-full px-2 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                    className="block w-full h-10 px-3 border border-gray-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm text-gray-900"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">{t('common.weight')}</label>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">{t('common.weight')}</label>
                   <input
                     type="text"
                     inputMode="decimal"
                     value={exercise.recommended_weight ?? ''}
                     onChange={e => updateEditExercise(exercise.id, 'recommended_weight', e.target.value)}
-                    className="block w-full px-2 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                    className="block w-full h-10 px-3 border border-gray-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm text-gray-900"
                     placeholder="kg"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">{t('workout.restSeconds')}</label>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">{t('workout.restSeconds')}</label>
                   <input
                     type="number"
                     inputMode="numeric"
                     min="0"
                     value={exercise.rest_in_seconds}
                     onChange={e => updateEditExercise(exercise.id, 'rest_in_seconds', parseInt(e.target.value) || 0)}
-                    className="block w-full px-2 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                    className="block w-full h-10 px-3 border border-gray-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm text-gray-900"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">RPE</label>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">RPE</label>
                   <input
                     type="number"
                     inputMode="numeric"
@@ -733,7 +843,7 @@ export default function WorkoutPage() {
                     max="10"
                     value={exercise.rpe}
                     onChange={e => updateEditExercise(exercise.id, 'rpe', parseInt(e.target.value) || 7)}
-                    className="block w-full px-2 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                    className="block w-full h-10 px-3 border border-gray-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm text-gray-900"
                   />
                 </div>
               </div>
@@ -744,27 +854,27 @@ export default function WorkoutPage() {
         {/* Add exercise button */}
         <button
           onClick={addEditExercise}
-          className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-gray-300 text-gray-600 px-4 py-3 rounded-lg hover:border-blue-500 hover:text-blue-600 active:bg-blue-50 transition-colors font-medium text-sm sm:text-base mb-4 sm:mb-6"
+          className="w-full flex items-center justify-center gap-2 border border-dashed border-gray-300 text-gray-500 h-10 rounded-lg hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors text-sm font-medium mb-4"
         >
-          <Plus size={20} />
+          <Plus size={16} />
           {t('workout.addExercise')}
         </button>
 
-        {/* Save / Cancel */}
-        <div className="flex gap-3 sticky bottom-4">
+        {/* Save / Cancel — sticky bottom bar */}
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 flex gap-3 z-40">
           <button
             onClick={cancelEditMode}
             disabled={editSaving}
-            className="flex-1 bg-gray-200 text-gray-700 px-4 py-3 rounded-lg hover:bg-gray-300 active:bg-gray-400 transition-colors font-semibold text-sm sm:text-base disabled:opacity-50"
+            className="flex-1 h-10 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium text-sm disabled:opacity-50"
           >
             {t('common.cancel')}
           </button>
           <button
             onClick={saveEditChanges}
             disabled={editSaving}
-            className="flex-1 flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors font-semibold text-sm sm:text-base disabled:bg-gray-400 disabled:cursor-not-allowed"
+            className="flex-1 h-10 flex items-center justify-center gap-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold text-sm disabled:bg-gray-400 disabled:cursor-not-allowed"
           >
-            <Save size={18} />
+            <Save size={16} />
             {editSaving ? t('workout.saving') : t('workout.saveChanges')}
           </button>
         </div>
@@ -775,22 +885,23 @@ export default function WorkoutPage() {
   // ── Normal (view / track) mode ─────────────────────────────────────────────
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto pb-6">
       <button
         onClick={() => navigate('/')}
-        className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 sm:mb-6 active:text-gray-600"
+        className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 sm:mb-6"
       >
         <ArrowLeft size={20} />
-        <span className="text-sm sm:text-base">{t('workout.backToWorkouts')}</span>
+        <span className="text-sm">{t('workout.backToWorkouts')}</span>
       </button>
 
-      <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-4 sm:mb-6">
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 mb-4">
+      {/* Workout header card */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 sm:p-6 mb-4">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 mb-3">
           <div className="flex-1 min-w-0">
-            <h1 className="text-xl sm:text-3xl font-bold text-gray-900 mb-1 sm:mb-2 truncate">
+            <h1 className="text-xl font-semibold text-gray-900 mb-1 truncate">
               {workout.name}
             </h1>
-            <p className="text-sm sm:text-base text-gray-600">
+            <p className="text-sm text-gray-600">
               {format(parseISO(workout.date), 'EEE, MMM d, yyyy', { locale: dateFnsLocale })}
             </p>
           </div>
@@ -799,24 +910,24 @@ export default function WorkoutPage() {
             {canEdit && (
               <button
                 onClick={enterEditMode}
-                className="p-2 text-blue-600 hover:bg-blue-50 active:bg-blue-100 rounded-lg transition-colors"
+                className="h-9 w-9 flex items-center justify-center text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                 title={t('workout.editWorkout')}
               >
-                <Pencil size={20} />
+                <Pencil size={16} />
               </button>
             )}
             <button
               onClick={deleteWorkout}
-              className="p-2 text-red-600 hover:bg-red-50 active:bg-red-100 rounded-lg transition-colors"
+              className="h-9 w-9 flex items-center justify-center text-red-500 hover:bg-red-50 rounded-lg transition-colors"
               title={t('common.delete')}
             >
-              <Trash2 size={20} />
+              <Trash2 size={16} />
             </button>
             <span
-              className={`px-3 py-1 rounded-full text-xs sm:text-sm font-semibold whitespace-nowrap ${
+              className={`rounded-full text-xs font-medium px-2.5 py-1 whitespace-nowrap ${
                 workout.status === 'done'
-                  ? 'bg-green-100 text-green-800'
-                  : 'bg-blue-100 text-blue-800'
+                  ? 'bg-green-100 text-green-700'
+                  : 'bg-gray-100 text-gray-600'
               }`}
             >
               {getStatusLabel(workout.status)}
@@ -824,51 +935,51 @@ export default function WorkoutPage() {
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-3 sm:gap-4 text-xs sm:text-sm text-gray-600">
+        <div className="flex flex-wrap gap-2 text-xs text-gray-500">
           <div className="flex items-center gap-1">
-            <Target size={14} className="sm:w-4 sm:h-4" />
+            <Target size={12} />
             <span>{workout.workout_type}</span>
           </div>
           <div className="flex items-center gap-1">
-            <CheckCircle size={14} className="sm:w-4 sm:h-4" />
+            <CheckCircle size={12} />
             <span>{exercises.length} {t('common.exercises')}</span>
           </div>
         </div>
 
         {workout.notes && (
-          <div className="mt-4 p-3 bg-gray-50 rounded border border-gray-200">
-            <p className="text-xs sm:text-sm text-gray-700">{workout.notes}</p>
+          <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+            <p className="text-xs text-gray-600">{workout.notes}</p>
           </div>
         )}
       </div>
 
       {/* Analysis Card — shown after workout is done */}
       {completionState === 'analyzing' && (
-        <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-4 sm:mb-6">
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 sm:p-6 mb-4">
           <div className="animate-pulse space-y-3">
             <div className="flex items-center gap-2 mb-2">
-              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                <Lightbulb size={16} className="text-blue-400" />
+              <div className="w-8 h-8 bg-blue-50 rounded-full flex items-center justify-center">
+                <Lightbulb size={16} className="text-blue-500" />
               </div>
               <p className="text-sm font-medium text-gray-700">{t('analysis.analyzing')}</p>
             </div>
-            <div className="h-4 bg-gray-200 rounded w-3/4" />
-            <div className="h-4 bg-gray-200 rounded w-5/6" />
-            <div className="h-4 bg-gray-200 rounded w-2/3" />
+            <div className="h-3 bg-gray-100 rounded w-3/4" />
+            <div className="h-3 bg-gray-100 rounded w-5/6" />
+            <div className="h-3 bg-gray-100 rounded w-2/3" />
           </div>
         </div>
       )}
 
       {completionState === 'analysis_error' && (
-        <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-4 sm:mb-6">
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 sm:p-6 mb-4">
           <div className="flex items-start gap-3">
-            <AlertCircle size={20} className="text-red-500 flex-shrink-0 mt-0.5" />
+            <AlertCircle size={18} className="text-red-500 flex-shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-medium text-gray-900">{t('analysis.errorAnalysis')}</p>
               {analysisError && <p className="text-xs text-red-600 mt-1">{analysisError}</p>}
               <button
                 onClick={triggerAnalysis}
-                className="mt-2 text-sm text-blue-600 hover:text-blue-700 font-medium"
+                className="mt-2 text-xs font-medium text-blue-600 hover:text-blue-700"
               >
                 {t('analysis.retry')}
               </button>
@@ -878,27 +989,27 @@ export default function WorkoutPage() {
       )}
 
       {completionState === 'analysis_done' && analysisData && (
-        <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-4 sm:mb-6 space-y-4">
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 sm:p-6 mb-4 space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="font-bold text-gray-900 text-sm">{t('analysis.title')}</h3>
-            <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${getRatingColor(analysisData.performance_rating)}`}>
+            <h3 className="text-sm font-medium text-gray-700">{t('analysis.title')}</h3>
+            <span className={`rounded-full text-xs font-medium px-2.5 py-1 ${getRatingColor(analysisData.performance_rating)}`}>
               {t(`analysis.${analysisData.performance_rating}`)}
             </span>
           </div>
 
-          <p className="text-sm text-gray-700">{analysisData.summary}</p>
+          <p className="text-sm text-gray-600">{analysisData.summary}</p>
 
           {/* Highlights */}
           {analysisData.highlights.length > 0 && (
             <div>
-              <h4 className="text-xs font-semibold text-green-700 mb-1.5">{t('analysis.highlights')}</h4>
+              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">{t('analysis.highlights')}</h4>
               <div className="space-y-1.5">
                 {analysisData.highlights.map((h, i) => (
                   <div key={i} className="flex items-start gap-2 bg-green-50 rounded-lg px-3 py-2">
                     {getTrendIcon(h.trend)}
                     <div>
                       <span className="text-xs font-medium text-green-900">{h.exercise_name}</span>
-                      <p className="text-xs text-green-800">{h.observation}</p>
+                      <p className="text-xs text-green-700">{h.observation}</p>
                     </div>
                   </div>
                 ))}
@@ -909,14 +1020,14 @@ export default function WorkoutPage() {
           {/* Watch Items */}
           {analysisData.watch_items.length > 0 && (
             <div>
-              <h4 className="text-xs font-semibold text-amber-700 mb-1.5">{t('analysis.watchItems')}</h4>
+              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">{t('analysis.watchItems')}</h4>
               <div className="space-y-1.5">
                 {analysisData.watch_items.map((w, i) => (
                   <div key={i} className="flex items-start gap-2 bg-amber-50 rounded-lg px-3 py-2">
                     {getTrendIcon(w.trend)}
                     <div>
                       <span className="text-xs font-medium text-amber-900">{w.exercise_name}</span>
-                      <p className="text-xs text-amber-800">{w.observation}</p>
+                      <p className="text-xs text-amber-700">{w.observation}</p>
                     </div>
                   </div>
                 ))}
@@ -927,7 +1038,7 @@ export default function WorkoutPage() {
           {/* Coaching Tip */}
           {analysisData.coaching_tip && (
             <div className="flex items-start gap-2 bg-blue-50 rounded-lg px-3 py-2.5">
-              <Lightbulb size={16} className="text-blue-600 flex-shrink-0 mt-0.5" />
+              <Lightbulb size={14} className="text-blue-600 flex-shrink-0 mt-0.5" />
               <div>
                 <h4 className="text-xs font-semibold text-blue-800 mb-0.5">{t('analysis.coachingTip')}</h4>
                 <p className="text-xs text-blue-700 italic">{analysisData.coaching_tip}</p>
@@ -937,37 +1048,39 @@ export default function WorkoutPage() {
         </div>
       )}
 
-      <div className="space-y-3 sm:space-y-4 mb-4 sm:mb-6">
+      {/* Exercise cards */}
+      <div className="space-y-3 mb-4">
         {exercises.map((exercise, index) => (
-          <div key={exercise.id} className="bg-white rounded-lg shadow-md p-4 sm:p-6">
-            <div className="mb-4">
-              <h3 className="text-base sm:text-xl font-semibold text-gray-900 mb-2">
+          <div key={exercise.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+            {/* Exercise header */}
+            <div className="mb-3">
+              <h3 className="text-sm font-semibold text-gray-900 mb-2">
                 {index + 1}. {exercise.exercise_name}
               </h3>
-              <div className="flex flex-wrap gap-2 sm:gap-3 text-xs sm:text-sm text-gray-600">
-                <div className="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded">
-                  <Target size={12} className="sm:w-3.5 sm:h-3.5" />
-                  <span>{exercise.expected_sets}&times;{exercise.expected_reps}</span>
-                </div>
+              <div className="flex flex-wrap gap-1.5">
+                <span className="bg-gray-100 text-gray-600 text-xs rounded-full px-2 py-0.5 flex items-center gap-1">
+                  <Target size={10} />
+                  {exercise.expected_sets}&times;{exercise.expected_reps}
+                </span>
                 {exercise.recommended_weight && (
-                  <div className="bg-gray-100 px-2 py-1 rounded">
+                  <span className="bg-gray-100 text-gray-600 text-xs rounded-full px-2 py-0.5">
                     {exercise.recommended_weight}
-                  </div>
+                  </span>
                 )}
-                <div className="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded">
-                  <Clock size={12} className="sm:w-3.5 sm:h-3.5" />
-                  <span>{formatRestTime(exercise.rest_in_seconds)}</span>
-                </div>
-                <div className="bg-gray-100 px-2 py-1 rounded">
+                <span className="bg-gray-100 text-gray-600 text-xs rounded-full px-2 py-0.5 flex items-center gap-1">
+                  <Clock size={10} />
+                  {formatRestTime(exercise.rest_in_seconds)}
+                </span>
+                <span className="bg-gray-100 text-gray-600 text-xs rounded-full px-2 py-0.5">
                   RPE {exercise.rpe}
-                </div>
+                </span>
               </div>
             </div>
 
             {/* Input grid */}
-            <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-3 sm:mb-4">
+            <div className="grid grid-cols-3 gap-2 mb-3">
               <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-xs font-medium text-gray-500 mb-1">
                   {t('common.sets')}
                 </label>
                 <input
@@ -977,13 +1090,13 @@ export default function WorkoutPage() {
                   value={exercise.realized_sets || ''}
                   onChange={(e) => updateExercise(exercise.id, 'realized_sets', e.target.value ? parseInt(e.target.value) : null)}
                   disabled={workout.status === 'done'}
-                  className={`w-full px-2 sm:px-3 py-2 sm:py-2.5 border border-gray-300 rounded-lg text-sm sm:text-base ${workout.status === 'done' ? 'bg-gray-50 text-gray-600 cursor-not-allowed' : 'focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
+                  className={`w-full h-9 text-sm rounded-lg border border-gray-200 px-3 outline-none ${workout.status === 'done' ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : 'focus:ring-1 focus:ring-blue-500 focus:border-blue-500'}`}
                   placeholder="0"
                 />
               </div>
 
               <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-xs font-medium text-gray-500 mb-1">
                   {t('common.reps')}
                 </label>
                 <input
@@ -993,13 +1106,13 @@ export default function WorkoutPage() {
                   value={exercise.realized_reps || ''}
                   onChange={(e) => updateExercise(exercise.id, 'realized_reps', e.target.value ? parseInt(e.target.value) : null)}
                   disabled={workout.status === 'done'}
-                  className={`w-full px-2 sm:px-3 py-2 sm:py-2.5 border border-gray-300 rounded-lg text-sm sm:text-base ${workout.status === 'done' ? 'bg-gray-50 text-gray-600 cursor-not-allowed' : 'focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
+                  className={`w-full h-9 text-sm rounded-lg border border-gray-200 px-3 outline-none ${workout.status === 'done' ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : 'focus:ring-1 focus:ring-blue-500 focus:border-blue-500'}`}
                   placeholder="0"
                 />
               </div>
 
               <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-xs font-medium text-gray-500 mb-1">
                   {t('common.weight')}
                 </label>
                 <input
@@ -1008,56 +1121,197 @@ export default function WorkoutPage() {
                   value={exercise.realized_weight || ''}
                   onChange={(e) => updateExercise(exercise.id, 'realized_weight', e.target.value || null)}
                   disabled={workout.status === 'done'}
-                  className={`w-full px-2 sm:px-3 py-2 sm:py-2.5 border border-gray-300 rounded-lg text-sm sm:text-base ${workout.status === 'done' ? 'bg-gray-50 text-gray-600 cursor-not-allowed' : 'focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
+                  className={`w-full h-9 text-sm rounded-lg border border-gray-200 px-3 outline-none ${workout.status === 'done' ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : 'focus:ring-1 focus:ring-blue-500 focus:border-blue-500'}`}
                   placeholder="kg"
                 />
               </div>
             </div>
 
-            <div className="mb-3 sm:mb-4">
-              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+            <div className="mb-3">
+              <label className="block text-xs font-medium text-gray-500 mb-1">
                 {t('common.notes')}
               </label>
               <textarea
                 value={exercise.notes || ''}
                 onChange={(e) => updateExercise(exercise.id, 'notes', e.target.value || null)}
                 disabled={workout.status === 'done'}
-                className={`w-full px-2 sm:px-3 py-2 border border-gray-300 rounded-lg text-sm sm:text-base ${workout.status === 'done' ? 'bg-gray-50 text-gray-600 cursor-not-allowed' : 'focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
+                className={`w-full px-3 py-2 text-sm rounded-lg border border-gray-200 outline-none resize-none ${workout.status === 'done' ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : 'focus:ring-1 focus:ring-blue-500 focus:border-blue-500'}`}
                 rows={2}
                 placeholder={t('workout.addNotes')}
               />
             </div>
 
-            {workout.status !== 'done' && (
-            <div className="flex gap-2 sm:gap-3">
+            {/* Set Details collapsible section */}
+            <div className="mb-3 border border-gray-100 rounded-lg overflow-hidden">
               <button
-                onClick={() => saveExercise(exercise)}
-                disabled={saving}
-                className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 active:bg-blue-800 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-sm sm:text-base font-medium"
+                type="button"
+                onClick={() => toggleSetLogs(exercise.id)}
+                className="w-full flex items-center justify-between px-3 py-2 bg-gray-50 hover:bg-gray-100 transition-colors text-left"
               >
-                <Save size={16} />
-                {t('common.save')}
+                <span className="text-xs font-medium text-gray-600">
+                  Set Details
+                  {(setLogs.get(exercise.id) || []).length > 0 && (
+                    <span className="ml-2 text-xs text-blue-600 font-semibold">
+                      {(setLogs.get(exercise.id) || []).length} sets logged
+                    </span>
+                  )}
+                </span>
+                {setLogsExpanded.get(exercise.id)
+                  ? <ChevronUp size={14} className="text-gray-400" />
+                  : <ChevronDown size={14} className="text-gray-400" />
+                }
               </button>
-              <button
-                onClick={() => startRestTimer(exercise)}
-                className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-orange-500 text-white px-4 py-2.5 rounded-lg hover:bg-orange-600 active:bg-orange-700 transition-colors text-sm sm:text-base font-medium"
-              >
-                <Timer size={16} />
-                {t('common.rest')}
-              </button>
+
+              {setLogsExpanded.get(exercise.id) && (
+                <div className="p-3 space-y-2">
+                  {/* Set rows */}
+                  {(setLogs.get(exercise.id) || []).length > 0 && (
+                    <div className="space-y-1.5">
+                      {/* Header row */}
+                      <div className="grid grid-cols-[24px_76px_1fr_1fr_28px] gap-1.5 items-center">
+                        <span className="text-xs text-gray-400 text-center">#</span>
+                        <span className="text-xs text-gray-400">Type</span>
+                        <span className="text-xs text-gray-400">kg</span>
+                        <span className="text-xs text-gray-400">Reps</span>
+                        <span />
+                      </div>
+                      {(setLogs.get(exercise.id) || []).map((setRow, setIdx) => (
+                        <div key={setIdx} className="grid grid-cols-[24px_76px_1fr_1fr_28px] gap-1.5 items-center">
+                          <span className="text-xs text-gray-500 text-center font-medium">{setRow.set_number}</span>
+                          <select
+                            value={setRow.set_type || 'working'}
+                            onChange={e => updateSetLog(exercise.id, setIdx, 'set_type', e.target.value as ParsedSet['set_type'])}
+                            disabled={workout.status === 'done'}
+                            className={`w-full px-1.5 py-1.5 border border-gray-200 rounded-lg text-xs outline-none bg-white ${workout.status === 'done' ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : 'focus:ring-1 focus:ring-blue-500 focus:border-blue-500'}`}
+                          >
+                            <option value="working">Working</option>
+                            <option value="warmup">Warm-up</option>
+                            <option value="dropset">Drop set</option>
+                          </select>
+                          <input
+                            type="number"
+                            inputMode="decimal"
+                            step="0.5"
+                            min="0"
+                            value={setRow.weight_kg ?? ''}
+                            onChange={e => updateSetLog(exercise.id, setIdx, 'weight_kg', e.target.value ? parseFloat(e.target.value) : null)}
+                            disabled={workout.status === 'done'}
+                            placeholder="kg"
+                            className={`w-full px-1.5 py-1.5 border border-gray-200 rounded-lg text-xs outline-none ${workout.status === 'done' ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : 'focus:ring-1 focus:ring-blue-500 focus:border-blue-500'}`}
+                          />
+                          <input
+                            type="number"
+                            inputMode="numeric"
+                            min="0"
+                            value={setRow.reps ?? ''}
+                            onChange={e => updateSetLog(exercise.id, setIdx, 'reps', e.target.value ? parseInt(e.target.value) : null)}
+                            disabled={workout.status === 'done'}
+                            placeholder="reps"
+                            className={`w-full px-1.5 py-1.5 border border-gray-200 rounded-lg text-xs outline-none ${workout.status === 'done' ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : 'focus:ring-1 focus:ring-blue-500 focus:border-blue-500'}`}
+                          />
+                          {workout.status !== 'done' ? (
+                            <button
+                              type="button"
+                              onClick={() => removeSetLog(exercise.id, setIdx)}
+                              className="flex items-center justify-center w-7 h-7 text-red-400 hover:text-red-600 rounded-lg transition-colors"
+                              title="Remove set"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          ) : <span />}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Add set button */}
+                  {workout.status !== 'done' && (
+                    <button
+                      type="button"
+                      onClick={() => addSetLog(exercise.id)}
+                      className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-medium py-1"
+                    >
+                      <Plus size={13} />
+                      Add set
+                    </button>
+                  )}
+
+                  {/* AI Parse section */}
+                  {workout.status !== 'done' && (
+                    <div className="border-t border-gray-100 pt-2 mt-2">
+                      <button
+                        type="button"
+                        onClick={() => toggleAiParse(exercise.id)}
+                        className="flex items-center gap-1.5 text-xs text-purple-600 hover:text-purple-700 font-medium"
+                      >
+                        <Bot size={13} />
+                        AI Parse
+                        {aiParseExpanded.get(exercise.id)
+                          ? <ChevronUp size={11} />
+                          : <ChevronDown size={11} />
+                        }
+                      </button>
+
+                      {aiParseExpanded.get(exercise.id) && (
+                        <div className="mt-2 bg-gray-50 rounded-lg p-3 space-y-2">
+                          <textarea
+                            value={aiParseText.get(exercise.id) || ''}
+                            onChange={e => setAiParseText(prev => { const n = new Map(prev); n.set(exercise.id, e.target.value); return n })}
+                            placeholder='e.g. warmup 40kg x12, 3 sets 80kg x8, last 85kg x6'
+                            rows={2}
+                            className="w-full px-2.5 py-2 border border-gray-200 rounded-lg text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none bg-white"
+                          />
+                          {aiParseError.get(exercise.id) && (
+                            <p className="text-xs text-red-600">{aiParseError.get(exercise.id)}</p>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleAiParse(exercise)}
+                            disabled={aiParsing.get(exercise.id) || !aiParseText.get(exercise.id)?.trim()}
+                            className="flex items-center gap-1.5 bg-blue-600 text-white h-9 px-3 rounded-lg text-xs font-medium hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                          >
+                            <Bot size={12} />
+                            {aiParsing.get(exercise.id) ? 'Parsing...' : 'Parse'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
+
+            {workout.status !== 'done' && (
+              <div className="flex gap-2">
+                <button
+                  onClick={() => saveExercise(exercise)}
+                  disabled={saving}
+                  className="flex-1 sm:flex-none h-9 px-3 flex items-center justify-center gap-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+                >
+                  <Save size={14} />
+                  {t('common.save')}
+                </button>
+                <button
+                  onClick={() => startRestTimer(exercise)}
+                  className="flex-1 sm:flex-none h-9 px-3 flex items-center justify-center gap-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+                >
+                  <Timer size={14} />
+                  {t('common.rest')}
+                </button>
+              </div>
             )}
           </div>
         ))}
       </div>
 
+      {/* Complete Workout sticky button */}
       {workout.status !== 'done' && (
-        <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 sticky bottom-4">
+        <div className="sticky bottom-4 px-0">
           <button
             onClick={completeWorkout}
-            className="w-full flex items-center justify-center gap-2 bg-green-600 text-white px-6 py-3 sm:py-4 rounded-lg hover:bg-green-700 active:bg-green-800 transition-colors text-base sm:text-lg font-semibold"
+            className="w-full h-12 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl transition-colors text-sm"
           >
-            <CheckCircle size={22} />
+            <CheckCircle size={20} />
             {t('workout.completeWorkout')}
           </button>
         </div>
@@ -1065,27 +1319,27 @@ export default function WorkoutPage() {
 
       {/* Rest Timer Overlay */}
       {timer.isActive && (
-        <div className="fixed inset-0 bg-black z-50 flex flex-col items-center justify-center p-6">
+        <div className="fixed inset-0 bg-gray-950 z-50 flex flex-col items-center justify-center p-6">
           <button
             onClick={stopTimer}
-            className="absolute top-4 right-4 sm:top-6 sm:right-6 text-white/70 hover:text-white p-2"
+            className="absolute top-4 right-4 sm:top-6 sm:right-6 text-white/60 hover:text-white p-2 rounded-lg"
           >
-            <X size={28} />
+            <X size={24} />
           </button>
 
-          <p className="text-white/70 text-sm sm:text-base mb-2 text-center">
+          <p className="text-white/60 text-sm mb-2 text-center">
             {t('workout.restAfter')}
           </p>
-          <h2 className="text-white text-xl sm:text-2xl font-semibold mb-8 sm:mb-12 text-center px-4">
+          <h2 className="text-white text-lg sm:text-xl font-semibold mb-8 sm:mb-12 text-center px-4">
             {timer.exerciseName}
           </h2>
 
           <div className="relative w-56 h-56 sm:w-72 sm:h-72 mb-8 sm:mb-12">
             <svg className="w-full h-full" viewBox="0 0 100 100">
-              <circle cx="50" cy="50" r="45" stroke="rgba(255,255,255,0.15)" strokeWidth="6" fill="none" />
+              <circle cx="50" cy="50" r="45" stroke="rgba(255,255,255,0.1)" strokeWidth="6" fill="none" />
               <circle
                 cx="50" cy="50" r="45"
-                stroke={timer.isComplete ? '#22c55e' : '#f97316'}
+                stroke={timer.isComplete ? '#22c55e' : '#3b82f6'}
                 strokeWidth="6" fill="none" strokeLinecap="round"
                 strokeDasharray={`${2 * Math.PI * 45}`}
                 strokeDashoffset={`${2 * Math.PI * 45 * (1 - getProgressPercentage() / 100)}`}
@@ -1097,8 +1351,8 @@ export default function WorkoutPage() {
             <div className="absolute inset-0 flex flex-col items-center justify-center">
               {timer.isComplete ? (
                 <div className="text-center">
-                  <p className="text-green-400 text-5xl sm:text-7xl font-bold mb-2">0:00</p>
-                  <p className="text-green-400 text-lg sm:text-xl font-medium">{t('workout.timesUp')}</p>
+                  <p className="text-green-400 text-5xl sm:text-7xl font-bold mb-2 tabular-nums">0:00</p>
+                  <p className="text-green-400 text-base font-medium">{t('workout.timesUp')}</p>
                 </div>
               ) : (
                 <p className="text-white text-5xl sm:text-7xl font-bold tabular-nums">
@@ -1111,23 +1365,23 @@ export default function WorkoutPage() {
           {timer.isComplete ? (
             <button
               onClick={stopTimer}
-              className="flex items-center justify-center gap-3 bg-green-500 text-white px-10 sm:px-14 py-4 sm:py-5 rounded-full hover:bg-green-600 active:bg-green-700 transition-all text-lg sm:text-xl font-bold shadow-lg shadow-green-500/30 animate-pulse"
+              className="flex items-center justify-center gap-3 bg-green-600 text-white px-10 sm:px-14 py-4 sm:py-5 rounded-full hover:bg-green-700 transition-colors text-base sm:text-lg font-semibold animate-pulse"
             >
-              <Dumbbell size={24} />
+              <Dumbbell size={22} />
               {t('workout.liftAgain')}
             </button>
           ) : (
             <button
               onClick={stopTimer}
-              className="text-white/60 hover:text-white text-sm sm:text-base underline"
+              className="text-white/50 hover:text-white/80 text-sm underline"
             >
               {t('workout.cancelTimer')}
             </button>
           )}
 
-          <div className="absolute bottom-0 left-0 right-0 h-1 sm:h-1.5 bg-white/10">
+          <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/10">
             <div
-              className={`h-full transition-all duration-1000 ease-linear ${timer.isComplete ? 'bg-green-500' : 'bg-orange-500'}`}
+              className={`h-full transition-all duration-1000 ease-linear ${timer.isComplete ? 'bg-green-500' : 'bg-blue-500'}`}
               style={{ width: `${getProgressPercentage()}%` }}
             />
           </div>

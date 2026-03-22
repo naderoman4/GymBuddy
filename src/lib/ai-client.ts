@@ -91,6 +91,39 @@ export interface WeeklyDigestResponse {
   error?: string
 }
 
+export interface ParsedSet {
+  set_number: number
+  weight_kg: number | null
+  reps: number | null
+  set_type: 'warmup' | 'working' | 'dropset' | null
+  completed: boolean
+}
+
+interface ParseExerciseLogInput {
+  text: string
+  exercise_name: string
+  expected_sets: number
+  expected_reps: number
+}
+
+export async function parseExerciseLog(input: ParseExerciseLogInput, accessToken: string): Promise<ParsedSet[]> {
+  const { data, error } = await supabase.functions.invoke('parse-exercise-log', {
+    body: input,
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+
+  if (error) {
+    const errorBody = data || error
+    const status = (error as any)?.context?.status
+    const serverMsg = typeof errorBody === 'object' ? (errorBody?.error || errorBody?.message) : error.message
+    if (status === 401) throw new Error('Not authenticated. Please log in again.')
+    throw new Error(serverMsg || error.message || 'Failed to parse exercise log')
+  }
+
+  if (data?.error) throw new Error(data.error)
+  return data.sets
+}
+
 export async function generateWeeklyDigest(accessToken: string): Promise<WeeklyDigestResponse> {
   console.log('[ai-client] Calling weekly-digest...')
   const { data, error } = await supabase.functions.invoke('weekly-digest', {

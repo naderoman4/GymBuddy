@@ -65,6 +65,7 @@ export interface Database {
           realized_reps: number | null
           realized_weight: string | null
           notes: string | null
+          set_logs: any[] | null
           user_id: string
           created_at: string
         }
@@ -82,6 +83,7 @@ export interface Database {
           realized_reps?: number | null
           realized_weight?: string | null
           notes?: string | null
+          set_logs?: any[] | null
           user_id: string
           created_at?: string
         }
@@ -99,6 +101,7 @@ export interface Database {
           realized_reps?: number | null
           realized_weight?: string | null
           notes?: string | null
+          set_logs?: any[] | null
           user_id?: string
           created_at?: string
         }

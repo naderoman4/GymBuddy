@@ -20,19 +20,19 @@ function CollapsibleSection({ title, icon, children, defaultOpen = false }: Coll
   const [isOpen, setIsOpen] = useState(defaultOpen)
 
   return (
-    <div className="bg-white rounded-lg shadow-md overflow-hidden">
+    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
       >
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           {icon}
-          <span className="font-semibold text-gray-900 text-sm">{title}</span>
+          <span className="font-medium text-gray-900 text-sm">{title}</span>
         </div>
         {isOpen ? (
-          <ChevronDown size={18} className="text-gray-400" />
+          <ChevronDown size={16} className="text-gray-400" />
         ) : (
-          <ChevronRight size={18} className="text-gray-400" />
+          <ChevronRight size={16} className="text-gray-400" />
         )}
       </button>
       {isOpen && <div className="px-4 pb-4 border-t border-gray-100">{children}</div>}
@@ -181,30 +181,30 @@ export default function ProfilePage() {
   const supplements = (profile?.supplements as unknown as string[]) ?? []
 
   return (
-    <div className="max-w-2xl mx-auto space-y-4">
-      <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{t('profile.title')}</h1>
+    <div className="max-w-2xl mx-auto space-y-3">
+      <h1 className="text-2xl font-semibold text-gray-900 mb-1">{t('profile.title')}</h1>
 
       {/* User Info */}
-      <div className="bg-white rounded-lg shadow-md p-4">
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 bg-blue-100 rounded-full flex items-center justify-center">
-            <User className="text-blue-600" size={28} />
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0">
+            <User className="text-gray-500" size={22} />
           </div>
-          <div className="flex-1">
-            <p className="text-sm text-gray-500">{t('profile.signedInAs')}</p>
-            <p className="font-semibold text-gray-900">{user?.email}</p>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs text-gray-500">{t('profile.signedInAs')}</p>
+            <p className="text-sm font-medium text-gray-900 truncate">{user?.email}</p>
           </div>
         </div>
       </div>
 
       {/* Complete Profile CTA */}
       {!isOnboardingComplete && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h3 className="font-semibold text-blue-900 mb-1">{t('profile.completeProfile')}</h3>
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+          <h3 className="text-sm font-semibold text-blue-900 mb-1">{t('profile.completeProfile')}</h3>
           <p className="text-sm text-blue-700 mb-3">{t('profile.completeProfileDesc')}</p>
           <button
             onClick={() => navigate('/onboarding/profile')}
-            className="bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors font-medium text-sm"
+            className="h-9 bg-blue-600 text-white px-4 rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors text-sm font-medium"
           >
             {t('profile.startOnboarding')}
           </button>
@@ -395,16 +395,16 @@ export default function ProfilePage() {
       )}
 
       {/* Language Toggle */}
-      <div className="bg-white rounded-lg shadow-md p-4">
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Globe size={20} className="text-gray-600" />
-            <span className="font-medium text-gray-900 text-sm">Language / Langue</span>
+          <div className="flex items-center gap-2.5">
+            <Globe size={18} className="text-gray-500" />
+            <span className="text-sm font-medium text-gray-900">Language / Langue</span>
           </div>
           <select
             value={i18n.language}
             onChange={(e) => handleLanguageChange(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+            className="h-9 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white text-gray-700"
           >
             <option value="fr">Francais</option>
             <option value="en">English</option>
@@ -413,60 +413,60 @@ export default function ProfilePage() {
       </div>
 
       {/* Sign Out */}
-      <div className="bg-white rounded-lg shadow-md p-4">
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
         <button
           onClick={handleSignOut}
-          className="w-full flex items-center justify-center gap-2 bg-gray-100 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-200 active:bg-gray-300 transition-colors font-medium"
+          className="w-full flex items-center justify-center gap-2 h-10 bg-gray-100 text-gray-700 px-4 rounded-lg hover:bg-gray-200 active:bg-gray-300 transition-colors text-sm font-medium"
         >
-          <LogOut size={20} />
+          <LogOut size={16} />
           {t('auth.signOut')}
         </button>
       </div>
 
       {/* Legal Links */}
-      <div className="bg-white rounded-lg shadow-md p-4">
-        <h2 className="font-semibold text-gray-900 mb-3 text-sm">{t('profile.legal')}</h2>
-        <div className="space-y-1">
-          <Link to="/terms" className="flex items-center gap-3 text-gray-600 hover:text-gray-900 py-2">
-            <FileText size={18} />
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+        <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">{t('profile.legal')}</h2>
+        <div className="divide-y divide-gray-100">
+          <Link to="/terms" className="flex items-center gap-2.5 text-gray-600 hover:text-gray-900 py-2.5 transition-colors">
+            <FileText size={16} />
             <span className="text-sm">{t('profile.termsOfService')}</span>
           </Link>
-          <Link to="/privacy" className="flex items-center gap-3 text-gray-600 hover:text-gray-900 py-2">
-            <Shield size={18} />
+          <Link to="/privacy" className="flex items-center gap-2.5 text-gray-600 hover:text-gray-900 py-2.5 transition-colors">
+            <Shield size={16} />
             <span className="text-sm">{t('profile.privacyPolicy')}</span>
           </Link>
         </div>
       </div>
 
       {/* Danger Zone */}
-      <div className="bg-white rounded-lg shadow-md p-4 border border-red-200">
-        <h2 className="font-semibold text-red-600 mb-2 text-sm">{t('profile.dangerZone')}</h2>
-        <p className="text-xs text-gray-600 mb-3">{t('profile.dangerDescription')}</p>
+      <div className="bg-white rounded-xl border border-red-200 shadow-sm p-4">
+        <h2 className="text-xs font-semibold text-red-500 uppercase tracking-wider mb-1">{t('profile.dangerZone')}</h2>
+        <p className="text-xs text-gray-500 mb-3">{t('profile.dangerDescription')}</p>
 
         {!showDeleteConfirm ? (
           <button
             onClick={() => setShowDeleteConfirm(true)}
-            className="flex items-center gap-2 text-red-600 hover:text-red-700 font-medium text-sm"
+            className="flex items-center gap-1.5 text-red-600 hover:text-red-700 text-sm font-medium"
           >
-            <Trash2 size={16} />
+            <Trash2 size={14} />
             {t('profile.deleteAccount')}
           </button>
         ) : (
-          <div className="bg-red-50 rounded-lg p-4">
-            <div className="flex items-start gap-3 mb-4">
-              <AlertTriangle className="text-red-600 flex-shrink-0 mt-0.5" size={20} />
+          <div className="bg-red-50 rounded-lg p-3">
+            <div className="flex items-start gap-2.5 mb-3">
+              <AlertTriangle className="text-red-600 flex-shrink-0 mt-0.5" size={16} />
               <div>
-                <p className="font-semibold text-red-800 text-sm">{t('profile.deleteConfirmTitle')}</p>
-                <p className="text-xs text-red-700 mt-1">{t('profile.deleteConfirmDescription')}</p>
+                <p className="font-medium text-red-800 text-sm">{t('profile.deleteConfirmTitle')}</p>
+                <p className="text-xs text-red-700 mt-0.5">{t('profile.deleteConfirmDescription')}</p>
               </div>
             </div>
 
-            <p className="text-xs text-gray-700 mb-3" dangerouslySetInnerHTML={{ __html: t('profile.typeDeleteToConfirm') }} />
+            <p className="text-xs text-gray-700 mb-2" dangerouslySetInnerHTML={{ __html: t('profile.typeDeleteToConfirm') }} />
             <input
               type="text"
               value={confirmText}
               onChange={(e) => setConfirmText(e.target.value)}
-              className="block w-full px-4 py-2 border border-gray-300 rounded-lg mb-3 focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm"
+              className="block w-full h-9 px-3 border border-gray-200 rounded-lg mb-3 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 text-sm"
               placeholder="DELETE"
             />
 
@@ -474,20 +474,20 @@ export default function ProfilePage() {
               <p className="text-xs text-red-600 mb-3">{deleteError}</p>
             )}
 
-            <div className="flex gap-3">
+            <div className="flex gap-2">
               <button
                 onClick={() => {
                   setShowDeleteConfirm(false)
                   setConfirmText('')
                 }}
-                className="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors font-medium text-sm"
+                className="flex-1 h-9 bg-gray-100 text-gray-700 px-4 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
               >
                 {t('common.cancel')}
               </button>
               <button
                 onClick={handleDeleteAccount}
                 disabled={confirmText !== 'DELETE' || deleteLoading}
-                className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors font-medium text-sm"
+                className="flex-1 h-9 bg-red-600 text-white px-4 rounded-lg hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors text-sm font-medium"
               >
                 {deleteLoading ? t('profile.deleting') : t('profile.deleteForever')}
               </button>

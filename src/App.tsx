@@ -61,7 +61,7 @@ function BottomTabBar() {
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40 md:hidden safe-area-bottom">
-      <div className="flex items-center justify-around h-16">
+      <div className="flex items-stretch justify-around h-16">
         {tabs.map(({ path, icon: Icon, label }) => {
           const isActive = path === '/'
             ? location.pathname === '/'
@@ -71,10 +71,13 @@ function BottomTabBar() {
             <Link
               key={path}
               to={path}
-              className={`flex flex-col items-center justify-center gap-0.5 flex-1 h-full transition-colors ${
+              className={`relative flex flex-col items-center justify-center gap-0.5 flex-1 transition-colors ${
                 isActive ? 'text-blue-600' : 'text-gray-400'
               }`}
             >
+              {isActive && (
+                <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-blue-600 rounded-b-full" />
+              )}
               <Icon size={22} strokeWidth={isActive ? 2.5 : 2} />
               <span className={`text-[10px] ${isActive ? 'font-semibold' : 'font-medium'}`}>
                 {label}
@@ -104,14 +107,14 @@ function DesktopNav() {
   ]
 
   return (
-    <nav className="hidden md:block bg-gray-800 text-white shadow-lg">
+    <nav className="hidden md:block bg-white border-b border-gray-200">
       <div className="container mx-auto px-4">
-        <div className="flex justify-between items-center h-16">
+        <div className="flex justify-between items-center h-14">
           <Link to="/" className="flex items-center gap-2">
-            <img src="/logo.png" alt="GymBuddy Logo" className="h-8 w-auto" />
+            <img src="/logo.png" alt="GymBuddy Logo" className="h-7 w-auto" />
           </Link>
 
-          <div className="flex gap-2 items-center">
+          <div className="flex gap-1 items-center">
             {tabs.map(({ path, icon: Icon, label }) => {
               const isActive = path === '/'
                 ? location.pathname === '/'
@@ -121,11 +124,13 @@ function DesktopNav() {
                 <Link
                   key={path}
                   to={path}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                    isActive ? 'bg-blue-600' : 'hover:bg-gray-700'
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-blue-50 text-blue-600'
+                      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                   }`}
                 >
-                  <Icon size={20} />
+                  <Icon size={18} strokeWidth={isActive ? 2.5 : 2} />
                   <span>{label}</span>
                 </Link>
               )

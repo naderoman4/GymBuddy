@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Brain, Sparkles, ChevronDown, ChevronRight, AlertCircle, Check, Calendar, BarChart3, Trophy, Target, Lightbulb, MessageSquare } from 'lucide-react'
+import { Brain, Sparkles, ChevronDown, ChevronRight, AlertCircle, Check, Calendar, BarChart3, Trophy, Target, Lightbulb, MessageSquare, TrendingUp, Clock, BookmarkCheck, BookmarkPlus, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { format, addDays, nextMonday, startOfDay } from 'date-fns'
 import DatePicker from 'react-datepicker'
 import 'react-datepicker/dist/react-datepicker.css'
+import ReactMarkdown from 'react-markdown'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import { generateProgram, generateWeeklyDigest } from '../lib/ai-client'
 import type { WeeklyDigestResponse } from '../lib/ai-client'
+import type { AIRecommendation } from '../lib/database.types'
 
 interface ProgramWeek {
   week_number: number
@@ -323,17 +325,17 @@ export default function CoachPage() {
   const renderDigestSection = () => {
     if (digestState === 'generating') {
       return (
-        <div className="bg-white rounded-lg shadow-md p-4">
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
           <div className="animate-pulse space-y-3">
             <div className="flex items-center gap-2 mb-2">
-              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                <BarChart3 size={16} className="text-blue-400" />
+              <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
+                <BarChart3 size={15} className="text-blue-400" />
               </div>
-              <p className="text-sm font-medium text-gray-700">{t('digest.generating')}</p>
+              <p className="text-sm font-medium text-gray-600">{t('digest.generating')}</p>
             </div>
-            <div className="h-4 bg-gray-200 rounded w-3/4" />
-            <div className="h-4 bg-gray-200 rounded w-5/6" />
-            <div className="h-4 bg-gray-200 rounded w-2/3" />
+            <div className="h-3 bg-gray-100 rounded w-3/4" />
+            <div className="h-3 bg-gray-100 rounded w-5/6" />
+            <div className="h-3 bg-gray-100 rounded w-2/3" />
           </div>
         </div>
       )
@@ -341,9 +343,9 @@ export default function CoachPage() {
 
     if (digestState === 'error') {
       return (
-        <div className="bg-white rounded-lg shadow-md p-4">
-          <div className="flex items-start gap-3">
-            <AlertCircle size={20} className="text-red-500 flex-shrink-0 mt-0.5" />
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+          <div className="flex items-start gap-2.5">
+            <AlertCircle size={16} className="text-red-500 flex-shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-medium text-gray-900">{t('digest.errorDigest')}</p>
               {digestError && <p className="text-xs text-red-600 mt-1">{digestError}</p>}
@@ -361,7 +363,7 @@ export default function CoachPage() {
 
     if (digestState === 'done' && digestData) {
       return (
-        <div className="bg-white rounded-lg shadow-md p-4 space-y-3">
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="font-bold text-gray-900 text-sm flex items-center gap-2">
               <BarChart3 size={16} className="text-blue-600" />
@@ -448,21 +450,21 @@ export default function CoachPage() {
 
     // idle state — show generate button
     return (
-      <div className="bg-white rounded-lg shadow-md p-4">
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
         <div className="flex items-center gap-3 mb-3">
-          <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-            <BarChart3 className="text-blue-600" size={20} />
+          <div className="w-9 h-9 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0">
+            <BarChart3 className="text-blue-600" size={18} />
           </div>
           <div>
-            <h3 className="font-bold text-gray-900 text-sm">{t('digest.title')}</h3>
+            <h3 className="text-sm font-semibold text-gray-900">{t('digest.title')}</h3>
             <p className="text-xs text-gray-500">{t('digest.noWorkouts')}</p>
           </div>
         </div>
         <button
           onClick={handleGenerateDigest}
-          className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2.5 rounded-lg hover:from-blue-700 hover:to-purple-700 active:from-blue-800 active:to-purple-800 transition-all font-medium text-sm flex items-center justify-center gap-2"
+          className="w-full h-9 bg-blue-600 text-white px-4 rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors text-sm font-medium flex items-center justify-center gap-2"
         >
-          <BarChart3 size={16} />
+          <BarChart3 size={15} />
           {t('digest.generate')}
         </button>
       </div>
@@ -476,20 +478,20 @@ export default function CoachPage() {
     const aiResp = activeProgram.ai_response as any
     const weekCount = aiResp?.weeks?.length || activeProgram.duration_weeks
     return (
-      <div className="max-w-lg mx-auto px-4 py-2 space-y-4">
-        <h1 className="text-2xl font-bold text-gray-900">{t('coach.title')}</h1>
+      <div className="max-w-lg mx-auto px-4 py-2 space-y-3">
+        <h1 className="text-2xl font-semibold text-gray-900">{t('coach.title')}</h1>
 
-        <div className="bg-white rounded-lg shadow-md p-4">
-          <div className="flex items-start gap-3 mb-3">
-            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-              <Brain className="text-blue-600" size={20} />
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0">
+              <Brain className="text-blue-600" size={18} />
             </div>
             <div>
-              <h2 className="font-bold text-gray-900">{activeProgram.name}</h2>
+              <h2 className="font-semibold text-gray-900 text-sm">{activeProgram.name}</h2>
               {activeProgram.description && (
-                <p className="text-sm text-gray-600 mt-0.5">{activeProgram.description}</p>
+                <p className="text-xs text-gray-600 mt-0.5">{activeProgram.description}</p>
               )}
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-gray-400 mt-1">
                 {activeProgram.split_type} &middot; {t('coach.weeks', { count: weekCount })}
               </p>
             </div>
@@ -503,7 +505,7 @@ export default function CoachPage() {
             setActiveProgram(null)
             setViewState('idle')
           }}
-          className="w-full bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors font-semibold text-sm"
+          className="w-full h-10 bg-blue-600 text-white px-4 rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors text-sm font-medium"
         >
           {t('coach.createProgram')}
         </button>
@@ -556,67 +558,67 @@ export default function CoachPage() {
     const weeks = proposal.ai_response.weeks || []
 
     return (
-      <div className="max-w-lg mx-auto px-4 py-2 space-y-4 pb-32">
-        <h1 className="text-xl font-bold text-gray-900">{t('coach.proposalTitle')}</h1>
+      <div className="max-w-lg mx-auto px-4 py-2 space-y-3 pb-32">
+        <h1 className="text-xl font-semibold text-gray-900">{t('coach.proposalTitle')}</h1>
 
         {warning && (
-          <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-800">
+          <div className="bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 text-xs text-amber-800">
             {t('coach.usageWarning', { usage: warning })}
           </div>
         )}
 
         {/* Program header */}
-        <div className="bg-white rounded-lg shadow-md p-4">
-          <h2 className="font-bold text-gray-900 text-lg">{proposal.name}</h2>
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+          <h2 className="font-semibold text-gray-900">{proposal.name}</h2>
           {proposal.description && (
             <p className="text-sm text-gray-600 mt-1">{proposal.description}</p>
           )}
-          <div className="flex gap-3 mt-2 text-xs text-gray-500">
+          <div className="flex gap-3 mt-2 text-xs text-gray-400">
             {proposal.split_type && <span>{proposal.split_type}</span>}
             <span>{t('coach.weeks', { count: proposal.duration_weeks })}</span>
           </div>
           {proposal.progression_notes && (
-            <p className="text-xs text-gray-500 mt-2 italic">{proposal.progression_notes}</p>
+            <p className="text-xs text-gray-400 mt-2">{proposal.progression_notes}</p>
           )}
         </div>
 
         {/* Week accordion */}
         {weeks.map((week) => (
-          <div key={week.week_number} className="bg-white rounded-lg shadow-md overflow-hidden">
+          <div key={week.week_number} className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
             <button
               onClick={() => toggleWeek(week.week_number)}
-              className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50"
+              className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors"
             >
               <div className="text-left">
-                <span className="font-semibold text-gray-900 text-sm">
+                <span className="font-medium text-gray-900 text-sm">
                   {t('coach.week', { number: week.week_number })}
                 </span>
                 {week.theme && (
-                  <span className="text-xs text-gray-500 ml-2">{week.theme}</span>
+                  <span className="text-xs text-gray-400 ml-2">{week.theme}</span>
                 )}
               </div>
               {expandedWeeks.has(week.week_number) ? (
-                <ChevronDown size={18} className="text-gray-400" />
+                <ChevronDown size={16} className="text-gray-400" />
               ) : (
-                <ChevronRight size={18} className="text-gray-400" />
+                <ChevronRight size={16} className="text-gray-400" />
               )}
             </button>
 
             {expandedWeeks.has(week.week_number) && (
-              <div className="border-t border-gray-100 px-4 py-3 space-y-3">
+              <div className="border-t border-gray-100 px-4 py-3 space-y-2">
                 {week.workouts
                   .sort((a, b) => DAY_ORDER.indexOf(a.day_of_week.toLowerCase()) - DAY_ORDER.indexOf(b.day_of_week.toLowerCase()))
                   .map((workout, wIdx) => (
                     <div key={wIdx} className="bg-gray-50 rounded-lg p-3">
                       <div className="flex justify-between items-center mb-2">
                         <h4 className="font-medium text-gray-900 text-sm">{workout.name}</h4>
-                        <span className="text-xs text-gray-500 capitalize">{workout.day_of_week}</span>
+                        <span className="text-xs text-gray-400 capitalize">{workout.day_of_week}</span>
                       </div>
-                      <div className="space-y-1.5">
+                      <div className="space-y-1">
                         {workout.exercises.map((ex, eIdx) => (
                           <div key={eIdx} className="flex justify-between items-center text-xs">
                             <span className="text-gray-700">{ex.exercise_name}</span>
-                            <span className="text-gray-500">
+                            <span className="text-gray-400 tabular-nums">
                               {ex.expected_sets}x{ex.expected_reps}
                               {ex.recommended_weight ? ` @${ex.recommended_weight}kg` : ''}
                               {' '}RPE{ex.rpe}
@@ -633,18 +635,18 @@ export default function CoachPage() {
 
         {/* Feedback section */}
         {showFeedback && (
-          <div className="bg-white rounded-lg shadow-md p-4">
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
             <textarea
               value={feedbackText}
               onChange={(e) => setFeedbackText(e.target.value)}
-              className="block w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm resize-none"
+              className="block w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm resize-none"
               placeholder={t('coach.feedbackPlaceholder')}
               rows={3}
             />
             <button
               onClick={() => handleGenerate(feedbackText)}
               disabled={!feedbackText.trim()}
-              className="mt-2 w-full bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition-colors font-medium text-sm"
+              className="mt-2 w-full h-9 bg-blue-600 text-white px-4 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 transition-colors text-sm font-medium"
             >
               {t('coach.sendFeedback')}
             </button>
@@ -746,20 +748,20 @@ export default function CoachPage() {
 
   // Idle state — create program form
   return (
-    <div className="max-w-lg mx-auto px-4 py-2 space-y-4">
-      <h1 className="text-2xl font-bold text-gray-900">{t('coach.title')}</h1>
+    <div className="max-w-lg mx-auto px-4 py-2 space-y-3">
+      <h1 className="text-2xl font-semibold text-gray-900">{t('coach.title')}</h1>
 
       {renderDigestSection()}
 
-      <div className="bg-white rounded-lg shadow-md p-5 text-center">
-        <div className="w-14 h-14 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
-          <Sparkles className="text-blue-600" size={24} />
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+        <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center mx-auto mb-3">
+          <Sparkles className="text-blue-600" size={22} />
         </div>
-        <h2 className="text-lg font-bold text-gray-900 mb-1">{t('coach.noProgram')}</h2>
-        <p className="text-sm text-gray-600 mb-4">{t('coach.noProgramDesc')}</p>
+        <h2 className="text-base font-semibold text-gray-900 mb-1 text-center">{t('coach.noProgram')}</h2>
+        <p className="text-sm text-gray-500 mb-4 text-center">{t('coach.noProgramDesc')}</p>
 
         {/* Quick prompt chips */}
-        <div className="flex flex-wrap gap-2 mb-3">
+        <div className="flex flex-wrap gap-1.5 justify-center mb-4">
           {(['quickPrompt1', 'quickPrompt2', 'quickPrompt3'] as const).map((key) => {
             const label = t(`coach.${key}`)
             const isActive = instructions === label
@@ -770,8 +772,8 @@ export default function CoachPage() {
                 onClick={() => setInstructions(isActive ? '' : label)}
                 className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
                   isActive
-                    ? 'bg-blue-100 border-blue-400 text-blue-700 font-semibold'
-                    : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                    ? 'bg-blue-50 border-blue-400 text-blue-700 font-medium'
+                    : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
                 }`}
               >
                 {label}
@@ -781,13 +783,13 @@ export default function CoachPage() {
         </div>
 
         <div className="text-left mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-xs font-medium text-gray-600 mb-1.5">
             {t('coach.specificInstructions')}
           </label>
           <textarea
             value={instructions}
             onChange={(e) => setInstructions(e.target.value)}
-            className="block w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm resize-none"
+            className="block w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm resize-none"
             placeholder={t('coach.instructionsPlaceholder')}
             rows={3}
           />
@@ -795,9 +797,9 @@ export default function CoachPage() {
 
         <button
           onClick={() => handleGenerate()}
-          className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors font-semibold flex items-center justify-center gap-2"
+          className="w-full h-10 bg-blue-600 text-white px-4 rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors text-sm font-medium flex items-center justify-center gap-2"
         >
-          <Sparkles size={18} />
+          <Sparkles size={16} />
           {t('coach.generate')}
         </button>
       </div>

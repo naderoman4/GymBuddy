@@ -9,6 +9,7 @@ interface ProfileContextType {
   loading: boolean
   hasProfile: boolean
   isOnboardingComplete: boolean
+  hasExistingData: boolean
   updateProfile: (updates: Partial<AthleteProfileUpdate>) => Promise<{ error: any }>
   refetchProfile: () => Promise<void>
 }
@@ -20,6 +21,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const { i18n } = useTranslation()
   const [profile, setProfile] = useState<AthleteProfile | null>(null)
   const [loading, setLoading] = useState(true)
+  const [hasExistingData, setHasExistingData] = useState(false)
 
   const fetchProfile = useCallback(async () => {
     if (!user) {
@@ -44,6 +46,15 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     } else {
       setProfile(null)
     }
+
+    const { data: workoutsData, error: workoutsError } = await supabase
+      .from('workouts')
+      .select('id')
+      .eq('user_id', user.id)
+      .limit(1)
+
+    setHasExistingData(!workoutsError && Array.isArray(workoutsData) && workoutsData.length > 0)
+
     setLoading(false)
   }, [user, i18n])
 
@@ -94,6 +105,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     loading,
     hasProfile: !!profile,
     isOnboardingComplete: !!profile?.onboarding_completed,
+    hasExistingData,
     updateProfile,
     refetchProfile: fetchProfile,
   }

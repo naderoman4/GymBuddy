@@ -121,57 +121,57 @@ export default function CreateWorkoutPage() {
 
   return (
     <div className="max-w-4xl mx-auto">
-      <div className="mb-4 sm:mb-6">
+      <div className="mb-5">
         <button
           onClick={() => navigate('/')}
-          className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-3 sm:mb-4 active:text-gray-600"
+          className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 mb-4 transition-colors"
         >
-          <ArrowLeft size={20} />
-          <span className="text-sm sm:text-base">{t('createWorkout.backToWorkouts')}</span>
+          <ArrowLeft size={16} />
+          {t('createWorkout.backToWorkouts')}
         </button>
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{t('createWorkout.title')}</h1>
-        <p className="text-sm sm:text-base text-gray-600 mt-1 sm:mt-2">{t('createWorkout.subtitle')}</p>
+        <h1 className="text-2xl font-semibold text-gray-900">{t('createWorkout.title')}</h1>
+        <p className="text-sm text-gray-500 mt-1">{t('createWorkout.subtitle')}</p>
       </div>
 
-      <div className="bg-white rounded-lg shadow-md p-4 sm:p-8">
-        <div className="space-y-4 sm:space-y-6">
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 sm:p-6">
+        <div className="space-y-5">
           {/* Workout Details */}
-          <div className="bg-gray-50 p-3 sm:p-4 rounded-lg space-y-3 sm:space-y-4">
-            <h3 className="font-semibold text-gray-900 text-sm sm:text-base">{t('createWorkout.workoutDetails')}</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+          <div>
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">{t('createWorkout.workoutDetails')}</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
+                <label className="block text-xs font-medium text-gray-600 mb-1.5">
                   {t('createWorkout.workoutName')} *
                 </label>
                 <input
                   type="text"
                   value={workoutName}
                   onChange={(e) => setWorkoutName(e.target.value)}
-                  className="block w-full px-3 sm:px-4 py-2.5 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
+                  className="block w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                   placeholder={t('createWorkout.workoutNamePlaceholder')}
                 />
               </div>
               <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
+                <label className="block text-xs font-medium text-gray-600 mb-1.5">
                   {t('createWorkout.workoutDate')} *
                 </label>
                 <DatePicker
                   selected={workoutDate}
                   onChange={(date) => setWorkoutDate(date || new Date())}
                   dateFormat="MMM d, yyyy"
-                  className="block w-full px-3 sm:px-4 py-2.5 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
+                  className="block w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                 />
               </div>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
               <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
+                <label className="block text-xs font-medium text-gray-600 mb-1.5">
                   {t('createWorkout.workoutType')} *
                 </label>
                 <select
                   value={workoutType}
                   onChange={(e) => setWorkoutType(e.target.value)}
-                  className="block w-full px-3 sm:px-4 py-2.5 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
+                  className="block w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white"
                 >
                   <option value="Strength">{t('createWorkout.strength')}</option>
                   <option value="Cardio">{t('createWorkout.cardio')}</option>
@@ -180,70 +180,73 @@ export default function CreateWorkoutPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
+                <label className="block text-xs font-medium text-gray-600 mb-1.5">
                   {t('createWorkout.notesOptional')}
                 </label>
                 <input
                   type="text"
                   value={workoutNotes}
                   onChange={(e) => setWorkoutNotes(e.target.value)}
-                  className="block w-full px-3 sm:px-4 py-2.5 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
+                  className="block w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                   placeholder={t('createWorkout.notesPlaceholder')}
                 />
               </div>
             </div>
           </div>
 
+          {/* Divider */}
+          <div className="border-t border-gray-100" />
+
           {/* Exercises */}
           <div>
-            <h3 className="font-semibold text-gray-900 text-sm sm:text-base mb-3 sm:mb-4">{t('common.exercises')}</h3>
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">{t('common.exercises')}</h3>
 
-            <div className="space-y-3 sm:space-y-4">
+            <div className="space-y-3">
               {exercises.map((exercise, index) => (
-                <div key={index} className="bg-gray-50 p-3 sm:p-4 rounded-lg border border-gray-200">
-                  <div className="flex justify-between items-start mb-2 sm:mb-3">
-                    <h4 className="font-medium text-gray-700 text-sm sm:text-base">{t('createWorkout.exerciseTitle', { number: index + 1 })}</h4>
+                <div key={index} className="border border-gray-200 rounded-xl p-4">
+                  <div className="flex justify-between items-center mb-3">
+                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{t('createWorkout.exerciseTitle', { number: index + 1 })}</span>
                     {exercises.length > 1 && (
                       <button
                         onClick={() => removeExercise(index)}
-                        className="text-red-600 hover:text-red-700 active:text-red-800 p-1"
+                        className="text-gray-400 hover:text-red-600 transition-colors p-1"
                       >
-                        <Trash2 size={18} />
+                        <Trash2 size={15} />
                       </button>
                     )}
                   </div>
-                  <div className="mb-2 sm:mb-3">
-                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                  <div className="mb-3">
+                    <label className="block text-xs font-medium text-gray-600 mb-1.5">
                       {t('createWorkout.exerciseName')} *
                     </label>
                     <input
                       type="text"
                       value={exercise.exercise_name}
                       onChange={(e) => updateExercise(index, 'exercise_name', e.target.value)}
-                      className="block w-full px-2.5 sm:px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                      className="block w-full h-9 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                       placeholder={t('createWorkout.exerciseNamePlaceholder')}
                     />
                   </div>
-                  <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                  <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
                     <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">{t('common.sets')} *</label>
-                      <input type="number" inputMode="numeric" value={exercise.expected_sets} onChange={(e) => updateExercise(index, 'expected_sets', parseInt(e.target.value))} className="block w-full px-2 sm:px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm" min="1" />
+                      <label className="block text-xs font-medium text-gray-600 mb-1.5">{t('common.sets')} *</label>
+                      <input type="number" inputMode="numeric" value={exercise.expected_sets} onChange={(e) => updateExercise(index, 'expected_sets', parseInt(e.target.value))} className="block w-full h-9 px-2 border border-gray-200 rounded-lg text-sm text-center focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" min="1" />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">{t('common.reps')} *</label>
-                      <input type="number" inputMode="numeric" value={exercise.expected_reps} onChange={(e) => updateExercise(index, 'expected_reps', parseInt(e.target.value))} className="block w-full px-2 sm:px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm" min="1" />
+                      <label className="block text-xs font-medium text-gray-600 mb-1.5">{t('common.reps')} *</label>
+                      <input type="number" inputMode="numeric" value={exercise.expected_reps} onChange={(e) => updateExercise(index, 'expected_reps', parseInt(e.target.value))} className="block w-full h-9 px-2 border border-gray-200 rounded-lg text-sm text-center focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" min="1" />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">{t('common.weight')}</label>
-                      <input type="text" inputMode="decimal" value={exercise.recommended_weight} onChange={(e) => updateExercise(index, 'recommended_weight', e.target.value)} className="block w-full px-2 sm:px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm" placeholder="kg" />
+                      <label className="block text-xs font-medium text-gray-600 mb-1.5">{t('common.weight')}</label>
+                      <input type="text" inputMode="decimal" value={exercise.recommended_weight} onChange={(e) => updateExercise(index, 'recommended_weight', e.target.value)} className="block w-full h-9 px-2 border border-gray-200 rounded-lg text-sm text-center focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" placeholder="kg" />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">{t('createWorkout.restSeconds')}</label>
-                      <input type="number" inputMode="numeric" value={exercise.rest_in_seconds} onChange={(e) => updateExercise(index, 'rest_in_seconds', parseInt(e.target.value))} className="block w-full px-2 sm:px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm" min="0" />
+                      <label className="block text-xs font-medium text-gray-600 mb-1.5">{t('createWorkout.restSeconds')}</label>
+                      <input type="number" inputMode="numeric" value={exercise.rest_in_seconds} onChange={(e) => updateExercise(index, 'rest_in_seconds', parseInt(e.target.value))} className="block w-full h-9 px-2 border border-gray-200 rounded-lg text-sm text-center focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" min="0" />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">RPE</label>
-                      <input type="number" inputMode="numeric" value={exercise.rpe} onChange={(e) => updateExercise(index, 'rpe', parseInt(e.target.value))} className="block w-full px-2 sm:px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm" min="1" max="10" />
+                      <label className="block text-xs font-medium text-gray-600 mb-1.5">RPE</label>
+                      <input type="number" inputMode="numeric" value={exercise.rpe} onChange={(e) => updateExercise(index, 'rpe', parseInt(e.target.value))} className="block w-full h-9 px-2 border border-gray-200 rounded-lg text-sm text-center focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" min="1" max="10" />
                     </div>
                   </div>
                 </div>
@@ -251,26 +254,26 @@ export default function CreateWorkoutPage() {
 
               <button
                 onClick={addExercise}
-                className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-gray-300 text-gray-600 px-4 py-3 rounded-lg hover:border-blue-500 hover:text-blue-600 active:bg-blue-50 transition-colors font-medium text-sm sm:text-base"
+                className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-gray-200 text-gray-500 h-10 rounded-lg hover:border-blue-400 hover:text-blue-600 active:bg-blue-50 transition-colors text-sm font-medium"
               >
-                <Plus size={20} />
+                <Plus size={16} />
                 {t('createWorkout.addExercise')}
               </button>
             </div>
           </div>
         </div>
 
-        <div className="flex gap-2 sm:gap-3 mt-4 sm:mt-6">
+        <div className="flex gap-2 mt-6 pt-5 border-t border-gray-100">
           <button
             onClick={() => navigate('/')}
-            className="flex-1 bg-gray-200 text-gray-700 px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg hover:bg-gray-300 active:bg-gray-400 transition-colors font-semibold text-sm sm:text-base"
+            className="flex-1 h-10 bg-gray-100 text-gray-700 px-4 rounded-lg hover:bg-gray-200 active:bg-gray-300 transition-colors text-sm font-medium"
           >
             {t('common.cancel')}
           </button>
           <button
             onClick={handleCreateWorkout}
             disabled={isProcessing}
-            className="flex-1 bg-blue-600 text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg hover:bg-blue-700 active:bg-blue-800 disabled:bg-gray-400 transition-colors font-semibold text-sm sm:text-base"
+            className="flex-1 h-10 bg-blue-600 text-white px-4 rounded-lg hover:bg-blue-700 active:bg-blue-800 disabled:bg-gray-300 transition-colors text-sm font-medium"
           >
             {isProcessing ? t('createWorkout.creating') : t('common.create')}
           </button>

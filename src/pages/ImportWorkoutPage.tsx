@@ -200,29 +200,29 @@ export default function ImportWorkoutPage() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <div className="mb-4 sm:mb-6">
+      <div className="mb-5">
         <button
           onClick={() => navigate('/')}
-          className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-3 sm:mb-4 active:text-gray-600"
+          className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 mb-4 transition-colors"
         >
-          <ArrowLeft size={20} />
-          <span className="text-sm sm:text-base">{t('importWorkout.backToWorkouts')}</span>
+          <ArrowLeft size={16} />
+          {t('importWorkout.backToWorkouts')}
         </button>
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{t('importWorkout.title')}</h1>
-        <p className="text-sm sm:text-base text-gray-600 mt-1 sm:mt-2">{t('importWorkout.subtitle')}</p>
+        <h1 className="text-2xl font-semibold text-gray-900">{t('importWorkout.title')}</h1>
+        <p className="text-sm text-gray-500 mt-1">{t('importWorkout.subtitle')}</p>
       </div>
 
-      <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-4 sm:mb-6">
-        <h2 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">{t('importWorkout.csvFormat')}</h2>
-        <p className="text-sm sm:text-base text-gray-600 mb-3 sm:mb-4">
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-4">
+        <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">{t('importWorkout.csvFormat')}</h2>
+        <p className="text-sm text-gray-600 mb-3">
           {t('importWorkout.csvDescription')}
         </p>
-        <div className="bg-gray-50 p-3 sm:p-4 rounded border border-gray-200 overflow-x-auto">
-          <code className="text-xs sm:text-sm whitespace-nowrap">
+        <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 overflow-x-auto">
+          <code className="text-xs whitespace-nowrap text-gray-700">
             {t('importWorkout.csvRequired')}
           </code>
         </div>
-        <p className="text-xs sm:text-sm text-gray-500 mt-2">
+        <p className="text-xs text-gray-400 mt-2">
           {t('importWorkout.csvOptional')}
         </p>
       </div>
@@ -231,10 +231,10 @@ export default function ImportWorkoutPage() {
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        className={`border-2 border-dashed rounded-lg p-6 sm:p-12 text-center transition-colors ${
+        className={`border-2 border-dashed rounded-xl p-8 sm:p-12 text-center transition-colors ${
           isDragging
             ? 'border-blue-500 bg-blue-50'
-            : 'border-gray-300 bg-gray-50 hover:border-gray-400'
+            : 'border-gray-200 bg-gray-50 hover:border-gray-300'
         }`}
       >
         <input
@@ -245,32 +245,32 @@ export default function ImportWorkoutPage() {
           className="hidden"
         />
 
-        <Upload className="mx-auto mb-3 sm:mb-4 text-gray-400" size={40} />
+        <Upload className="mx-auto mb-3 text-gray-300" size={36} />
 
-        <h3 className="text-lg sm:text-xl font-semibold mb-2">
+        <h3 className="text-base font-semibold text-gray-900 mb-1">
           {isDragging ? t('importWorkout.dropHere') : t('importWorkout.uploadCSV')}
         </h3>
 
-        <p className="text-sm sm:text-base text-gray-600 mb-4">
+        <p className="text-sm text-gray-500 mb-5">
           {t('importWorkout.dragAndDrop')}
         </p>
 
-        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 justify-center">
+        <div className="flex flex-col sm:flex-row gap-2 justify-center">
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={isProcessing}
-            className="flex items-center justify-center gap-2 bg-blue-600 text-white px-4 sm:px-6 py-2.5 rounded-lg hover:bg-blue-700 active:bg-blue-800 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-sm sm:text-base"
+            className="flex items-center justify-center gap-2 h-10 bg-blue-600 text-white px-5 rounded-lg hover:bg-blue-700 active:bg-blue-800 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors text-sm font-medium"
           >
-            <Upload size={18} />
+            <Upload size={16} />
             {isProcessing ? t('importWorkout.processing') : t('importWorkout.selectFile')}
           </button>
 
           <button
             onClick={handlePasteFromClipboard}
             disabled={isProcessing}
-            className="flex items-center justify-center gap-2 bg-purple-600 text-white px-4 sm:px-6 py-2.5 rounded-lg hover:bg-purple-700 active:bg-purple-800 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-sm sm:text-base"
+            className="flex items-center justify-center gap-2 h-10 bg-white text-gray-700 px-5 rounded-lg border border-gray-200 hover:bg-gray-50 hover:border-gray-300 disabled:bg-gray-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
           >
-            <Clipboard size={18} />
+            <Clipboard size={16} />
             {t('importWorkout.pasteClipboard')}
           </button>
         </div>
@@ -278,29 +278,29 @@ export default function ImportWorkoutPage() {
 
       {message && (
         <div
-          className={`mt-4 sm:mt-6 p-3 sm:p-4 rounded-lg flex items-start gap-2 sm:gap-3 ${
+          className={`mt-4 p-3 rounded-lg flex items-start gap-2.5 ${
             message.type === 'success'
               ? 'bg-green-50 text-green-800 border border-green-200'
               : 'bg-red-50 text-red-800 border border-red-200'
           }`}
         >
           {message.type === 'success' ? (
-            <CheckCircle size={20} className="flex-shrink-0" />
+            <CheckCircle size={16} className="flex-shrink-0 mt-0.5" />
           ) : (
-            <AlertCircle size={20} className="flex-shrink-0" />
+            <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />
           )}
-          <p className="text-sm sm:text-base">{message.text}</p>
+          <p className="text-sm">{message.text}</p>
         </div>
       )}
 
-      <div className="mt-6 sm:mt-8 bg-blue-50 border border-blue-200 rounded-lg p-4 sm:p-6">
-        <h3 className="font-semibold text-blue-900 mb-2 text-sm sm:text-base">{t('importWorkout.importOptions')}</h3>
-        <ul className="text-xs sm:text-sm text-blue-800 space-y-1">
-          <li>&bull; <strong>{t('importWorkout.optionUpload')}</strong> {t('importWorkout.optionUploadDesc')}</li>
-          <li>&bull; <strong>{t('importWorkout.optionPaste')}</strong> {t('importWorkout.optionPasteDesc')}</li>
-          <li>&bull; <strong>{t('importWorkout.optionDrag')}</strong> {t('importWorkout.optionDragDesc')}</li>
+      <div className="mt-5 bg-white border border-gray-100 rounded-xl p-4">
+        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">{t('importWorkout.importOptions')}</h3>
+        <ul className="text-sm text-gray-600 space-y-1.5">
+          <li><span className="font-medium text-gray-700">{t('importWorkout.optionUpload')}</span> {t('importWorkout.optionUploadDesc')}</li>
+          <li><span className="font-medium text-gray-700">{t('importWorkout.optionPaste')}</span> {t('importWorkout.optionPasteDesc')}</li>
+          <li><span className="font-medium text-gray-700">{t('importWorkout.optionDrag')}</span> {t('importWorkout.optionDragDesc')}</li>
         </ul>
-        <p className="text-xs sm:text-sm text-blue-800 mt-3">
+        <p className="text-xs text-gray-400 mt-3">
           {t('importWorkout.groupingNote')}
         </p>
       </div>
