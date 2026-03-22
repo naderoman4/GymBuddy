@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Save, CheckCircle, Clock, Target, Timer, X, Dumbbell, Trash2, Lightbulb, TrendingUp, TrendingDown, Minus, AlertCircle } from 'lucide-react'
+import { ArrowLeft, Save, CheckCircle, Clock, Target, Timer, X, Dumbbell, Trash2, Lightbulb, TrendingUp, TrendingDown, Minus, AlertCircle, Pencil, Plus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../lib/supabase'
 import { analyzeWorkout } from '../lib/ai-client'
 import { useProfile } from '../contexts/ProfileContext'
+import { useAuth } from '../contexts/AuthContext'
 import type { Workout, Exercise } from '../lib/database.types'
 import { format, parseISO } from 'date-fns'
 import { fr, enUS } from 'date-fns/locale'
@@ -30,15 +31,36 @@ interface AnalysisData {
 
 type CompletionState = 'none' | 'celebrating' | 'analyzing' | 'analysis_done' | 'analysis_error'
 
+// An exercise in edit mode: either an existing DB exercise (has real id) or
+// a newly-added one (id prefixed with "new_").
+interface EditableExercise extends Exercise {
+  _isNew?: boolean
+  _deleted?: boolean
+}
+
+interface EditState {
+  name: string
+  date: string
+  workout_type: string
+  notes: string
+  exercises: EditableExercise[]
+}
+
 export default function WorkoutPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { t, i18n } = useTranslation()
   const { isOnboardingComplete } = useProfile()
+  const { user } = useAuth()
   const [workout, setWorkout] = useState<Workout | null>(null)
   const [exercises, setExercises] = useState<Exercise[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+
+  // Edit mode state
+  const [isEditing, setIsEditing] = useState(false)
+  const [editSaving, setEditSaving] = useState(false)
+  const [editState, setEditState] = useState<EditState | null>(null)
 
   // Post-completion states
   const [completionState, setCompletionState] = useState<CompletionState>('none')
@@ -219,7 +241,169 @@ export default function WorkoutPage() {
     }
   }
 
-  // Timer functions
+  // ── Edit mode ─────────────────────────────────────────────────────────────
+
+  const enterEditMode = () => {
+    if (!workout) return
+    setEditState({
+      name: workout.name,
+      date: workout.date,
+      workout_type: workout.workout_type,
+      notes: workout.notes ?? '',
+      exercises: exercises.map(ex => ({ ...ex, _isNew: false, _deleted: false })),
+    })
+    setIsEditing(true)
+  }
+
+  const cancelEditMode = () => {
+    setIsEditing(false)
+    setEditState(null)
+  }
+
+  const updateEditField = (field: keyof Omit<EditState, 'exercises'>, value: string) => {
+    setEditState(prev => prev ? { ...prev, [field]: value } : prev)
+  }
+
+  const updateEditExercise = (exerciseId: string, field: string, value: string | number) => {
+    setEditState(prev => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        exercises: prev.exercises.map(ex =>
+          ex.id === exerciseId ? { ...ex, [field]: value } : ex
+        ),
+      }
+    })
+  }
+
+  const addEditExercise = () => {
+    if (!workout || !user) return
+    const tempId = `new_${Date.now()}`
+    const newEx: EditableExercise = {
+      id: tempId,
+      workout_id: workout.id,
+      workout_name: workout.name,
+      exercise_name: '',
+      expected_sets: 3,
+      expected_reps: 10,
+      recommended_weight: null,
+      rest_in_seconds: 90,
+      rpe: 7,
+      realized_sets: null,
+      realized_reps: null,
+      realized_weight: null,
+      notes: null,
+      user_id: user.id,
+      created_at: new Date().toISOString(),
+      _isNew: true,
+      _deleted: false,
+    }
+    setEditState(prev => prev ? { ...prev, exercises: [...prev.exercises, newEx] } : prev)
+  }
+
+  const removeEditExercise = (exerciseId: string) => {
+    setEditState(prev => {
+      if (!prev) return prev
+      // New (unsaved) exercises: remove entirely. Existing: mark deleted.
+      if (exerciseId.startsWith('new_')) {
+        return { ...prev, exercises: prev.exercises.filter(ex => ex.id !== exerciseId) }
+      }
+      return {
+        ...prev,
+        exercises: prev.exercises.map(ex =>
+          ex.id === exerciseId ? { ...ex, _deleted: true } : ex
+        ),
+      }
+    })
+  }
+
+  const saveEditChanges = async () => {
+    if (!workout || !editState || !user) return
+
+    // Validate
+    const activeExercises = editState.exercises.filter(ex => !ex._deleted)
+    if (!editState.name.trim()) {
+      alert(t('createWorkout.fillRequired'))
+      return
+    }
+    if (activeExercises.some(ex => !ex.exercise_name.trim())) {
+      alert(t('createWorkout.fillRequired'))
+      return
+    }
+
+    setEditSaving(true)
+    try {
+      // 1. Update workout metadata
+      const { error: workoutError } = await supabase
+        .from('workouts')
+        // @ts-expect-error Supabase types inference issue
+        .update({
+          name: editState.name.trim(),
+          date: editState.date,
+          workout_type: editState.workout_type,
+          notes: editState.notes.trim() || null,
+        })
+        .eq('id', workout.id)
+
+      if (workoutError) throw new Error(workoutError.message)
+
+      // 2. Delete removed exercises
+      const toDelete = editState.exercises.filter(ex => ex._deleted && !ex._isNew)
+      for (const ex of toDelete) {
+        const { error } = await supabase.from('exercises').delete().eq('id', ex.id)
+        if (error) throw new Error(error.message)
+      }
+
+      // 3. Update existing exercises
+      const toUpdate = editState.exercises.filter(ex => !ex._isNew && !ex._deleted)
+      for (const ex of toUpdate) {
+        const { error } = await supabase
+          .from('exercises')
+          // @ts-expect-error Supabase types inference issue
+          .update({
+            exercise_name: ex.exercise_name,
+            expected_sets: ex.expected_sets,
+            expected_reps: ex.expected_reps,
+            recommended_weight: ex.recommended_weight || null,
+            rest_in_seconds: ex.rest_in_seconds,
+            rpe: ex.rpe,
+          })
+          .eq('id', ex.id)
+        if (error) throw new Error(error.message)
+      }
+
+      // 4. Insert new exercises
+      const toInsert = editState.exercises.filter(ex => ex._isNew && !ex._deleted)
+      if (toInsert.length > 0) {
+        const insertPayload = toInsert.map(ex => ({
+              workout_id: workout.id,
+              workout_name: editState.name.trim(),
+              exercise_name: ex.exercise_name,
+              expected_sets: ex.expected_sets,
+              expected_reps: ex.expected_reps,
+              recommended_weight: ex.recommended_weight || null,
+              rest_in_seconds: ex.rest_in_seconds,
+              rpe: ex.rpe,
+              user_id: user.id,
+            }))
+        // @ts-expect-error Supabase types inference issue
+        const { error } = await supabase.from('exercises').insert(insertPayload)
+        if (error) throw new Error(error.message)
+      }
+
+      // 5. Re-fetch to get fresh data (includes new IDs from DB)
+      await fetchWorkout()
+      setIsEditing(false)
+      setEditState(null)
+    } catch (err) {
+      alert(t('workout.editSaveError', { message: (err as Error).message }))
+    } finally {
+      setEditSaving(false)
+    }
+  }
+
+  // ── Timer functions ────────────────────────────────────────────────────────
+
   const playAlarmSound = useCallback(() => {
     try {
       if (!audioContextRef.current) {
@@ -359,6 +543,8 @@ export default function WorkoutPage() {
     }
   }
 
+  const canEdit = workout.status !== 'archived'
+
   // Celebration overlay
   if (completionState === 'celebrating') {
     return (
@@ -377,6 +563,216 @@ export default function WorkoutPage() {
       </div>
     )
   }
+
+  // ── Edit Mode Render ───────────────────────────────────────────────────────
+
+  if (isEditing && editState) {
+    const activeExercises = editState.exercises.filter(ex => !ex._deleted)
+
+    return (
+      <div className="max-w-4xl mx-auto">
+        <button
+          onClick={cancelEditMode}
+          className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 sm:mb-6 active:text-gray-600"
+        >
+          <ArrowLeft size={20} />
+          <span className="text-sm sm:text-base">{t('workout.backToWorkouts')}</span>
+        </button>
+
+        {/* Edit mode header card */}
+        <div className="bg-white rounded-lg shadow-md border-2 border-blue-400 p-4 sm:p-6 mb-4 sm:mb-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Pencil size={16} className="text-blue-600" />
+            <span className="text-sm font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded">
+              {t('workout.editing')}
+            </span>
+          </div>
+
+          <div className="space-y-3 sm:space-y-4">
+            {/* Name + Date row */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                  {t('workout.workoutName')} *
+                </label>
+                <input
+                  type="text"
+                  value={editState.name}
+                  onChange={e => updateEditField('name', e.target.value)}
+                  className="block w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
+                />
+              </div>
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                  {t('workout.workoutDate')} *
+                </label>
+                <input
+                  type="date"
+                  value={editState.date}
+                  onChange={e => updateEditField('date', e.target.value)}
+                  className="block w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
+                />
+              </div>
+            </div>
+
+            {/* Type + Notes row */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                  {t('workout.workoutType')} *
+                </label>
+                <select
+                  value={editState.workout_type}
+                  onChange={e => updateEditField('workout_type', e.target.value)}
+                  className="block w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
+                >
+                  <option value="Strength">{t('workout.strength')}</option>
+                  <option value="Cardio">{t('workout.cardio')}</option>
+                  <option value="Flexibility">{t('workout.flexibility')}</option>
+                  <option value="Mixed">{t('workout.mixed')}</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                  {t('workout.workoutNotes')}
+                </label>
+                <textarea
+                  value={editState.notes}
+                  onChange={e => updateEditField('notes', e.target.value)}
+                  rows={2}
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base resize-none"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Exercises in edit mode */}
+        <div className="space-y-3 sm:space-y-4 mb-4">
+          {activeExercises.map((exercise, index) => (
+            <div key={exercise.id} className="bg-white rounded-lg shadow-md border-2 border-blue-100 p-4 sm:p-6">
+              <div className="flex justify-between items-start mb-3">
+                <h4 className="font-medium text-gray-700 text-sm sm:text-base">
+                  {t('createWorkout.exerciseTitle', { number: index + 1 })}
+                </h4>
+                <button
+                  onClick={() => removeEditExercise(exercise.id)}
+                  className="text-red-500 hover:text-red-700 active:text-red-800 p-1"
+                  title={t('workout.deleteExercise')}
+                >
+                  <Trash2 size={18} />
+                </button>
+              </div>
+
+              {/* Exercise name */}
+              <div className="mb-3">
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  {t('workout.exerciseName')} *
+                </label>
+                <input
+                  type="text"
+                  value={exercise.exercise_name}
+                  onChange={e => updateEditExercise(exercise.id, 'exercise_name', e.target.value)}
+                  className="block w-full px-2.5 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                  placeholder={t('createWorkout.exerciseNamePlaceholder')}
+                />
+              </div>
+
+              {/* Sets / Reps / Weight / Rest / RPE */}
+              <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">{t('common.sets')} *</label>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min="1"
+                    value={exercise.expected_sets}
+                    onChange={e => updateEditExercise(exercise.id, 'expected_sets', parseInt(e.target.value) || 1)}
+                    className="block w-full px-2 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">{t('common.reps')} *</label>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min="1"
+                    value={exercise.expected_reps}
+                    onChange={e => updateEditExercise(exercise.id, 'expected_reps', parseInt(e.target.value) || 1)}
+                    className="block w-full px-2 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">{t('common.weight')}</label>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={exercise.recommended_weight ?? ''}
+                    onChange={e => updateEditExercise(exercise.id, 'recommended_weight', e.target.value)}
+                    className="block w-full px-2 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                    placeholder="kg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">{t('workout.restSeconds')}</label>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min="0"
+                    value={exercise.rest_in_seconds}
+                    onChange={e => updateEditExercise(exercise.id, 'rest_in_seconds', parseInt(e.target.value) || 0)}
+                    className="block w-full px-2 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">RPE</label>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min="1"
+                    max="10"
+                    value={exercise.rpe}
+                    onChange={e => updateEditExercise(exercise.id, 'rpe', parseInt(e.target.value) || 7)}
+                    className="block w-full px-2 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Add exercise button */}
+        <button
+          onClick={addEditExercise}
+          className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-gray-300 text-gray-600 px-4 py-3 rounded-lg hover:border-blue-500 hover:text-blue-600 active:bg-blue-50 transition-colors font-medium text-sm sm:text-base mb-4 sm:mb-6"
+        >
+          <Plus size={20} />
+          {t('workout.addExercise')}
+        </button>
+
+        {/* Save / Cancel */}
+        <div className="flex gap-3 sticky bottom-4">
+          <button
+            onClick={cancelEditMode}
+            disabled={editSaving}
+            className="flex-1 bg-gray-200 text-gray-700 px-4 py-3 rounded-lg hover:bg-gray-300 active:bg-gray-400 transition-colors font-semibold text-sm sm:text-base disabled:opacity-50"
+          >
+            {t('common.cancel')}
+          </button>
+          <button
+            onClick={saveEditChanges}
+            disabled={editSaving}
+            className="flex-1 flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors font-semibold text-sm sm:text-base disabled:bg-gray-400 disabled:cursor-not-allowed"
+          >
+            <Save size={18} />
+            {editSaving ? t('workout.saving') : t('workout.saveChanges')}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Normal (view / track) mode ─────────────────────────────────────────────
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -400,6 +796,15 @@ export default function WorkoutPage() {
           </div>
 
           <div className="flex items-center gap-2">
+            {canEdit && (
+              <button
+                onClick={enterEditMode}
+                className="p-2 text-blue-600 hover:bg-blue-50 active:bg-blue-100 rounded-lg transition-colors"
+                title={t('workout.editWorkout')}
+              >
+                <Pencil size={20} />
+              </button>
+            )}
             <button
               onClick={deleteWorkout}
               className="p-2 text-red-600 hover:bg-red-50 active:bg-red-100 rounded-lg transition-colors"
