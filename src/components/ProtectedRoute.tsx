@@ -6,7 +6,7 @@ const ONBOARDING_EXEMPT_PATHS = ['/onboarding/profile', '/login', '/signup', '/t
 
 export default function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading: authLoading } = useAuth()
-  const { isOnboardingComplete, hasExistingData, loading: profileLoading } = useProfile()
+  const { profile, isOnboardingComplete, hasExistingData, loading: profileLoading } = useProfile()
   const location = useLocation()
 
   if (authLoading) {
@@ -37,9 +37,10 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
     )
   }
 
-  // Redirect to onboarding if profile not complete and user has no existing workout data
-  // (belt-and-suspenders: if workouts exist the user has already been through onboarding)
-  if (!isOnboardingComplete && !hasExistingData && !ONBOARDING_EXEMPT_PATHS.includes(location.pathname)) {
+  // Only redirect brand new users (no profile row at all) to onboarding
+  // Users who have a profile (even partial/skipped) or existing workouts are never force-redirected
+  const isNewUser = !profile && !hasExistingData
+  if (isNewUser && !ONBOARDING_EXEMPT_PATHS.includes(location.pathname)) {
     return <Navigate to="/onboarding/profile" replace />
   }
 
