@@ -20,17 +20,22 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
   const { i18n } = useTranslation()
   const [profile, setProfile] = useState<AthleteProfile | null>(null)
-  const [loading, setLoading] = useState(true)
   const [hasExistingData, setHasExistingData] = useState(false)
+  // Track which user ID the last completed fetch was for.
+  // undefined = never fetched; null = fetched while logged out; string = fetched for that user ID.
+  const [fetchedForUserId, setFetchedForUserId] = useState<string | null | undefined>(undefined)
+
+  // Derived synchronously during render — true whenever user/fetchedForUserId are out of sync.
+  // This avoids the race condition where setLoading(true) runs after render (inside a useEffect).
+  const loading = fetchedForUserId !== (user?.id ?? null)
 
   const fetchProfile = useCallback(async () => {
     if (!user) {
       setProfile(null)
-      setLoading(false)
+      setHasExistingData(false)
+      setFetchedForUserId(null)
       return
     }
-
-    setLoading(true)
 
     const { data, error } = await supabase
       .from('athlete_profiles')
@@ -56,8 +61,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       .limit(1)
 
     setHasExistingData(!workoutsError && Array.isArray(workoutsData) && workoutsData.length > 0)
-
-    setLoading(false)
+    setFetchedForUserId(user.id)
   }, [user, i18n])
 
   useEffect(() => {

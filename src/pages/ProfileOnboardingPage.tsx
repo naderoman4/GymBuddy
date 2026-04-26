@@ -18,7 +18,8 @@ export default function ProfileOnboardingPage() {
   const { profile, updateProfile } = useProfile()
 
   const [currentStep, setCurrentStep] = useState(() => {
-    return profile?.onboarding_step ?? 0
+    const step = profile?.onboarding_step ?? 0
+    return Math.min(step, TOTAL_STEPS - 1)
   })
   const [formData, setFormData] = useState<Partial<AthleteProfileUpdate>>(() => {
     if (profile) {
