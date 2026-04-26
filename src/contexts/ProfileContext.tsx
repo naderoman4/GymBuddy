@@ -30,6 +30,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       return
     }
 
+    setLoading(true)
+
     const { data, error } = await supabase
       .from('athlete_profiles')
       .select('*')
